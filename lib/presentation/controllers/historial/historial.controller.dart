@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as path;
-import 'package:app_guias/services/log/logger.service.dart';
 import 'package:open_file/open_file.dart';
 import 'package:provider/provider.dart';
 import 'package:app_guias/providers/guia.provider.dart';
@@ -184,7 +183,6 @@ class HistorialController extends ChangeNotifier {
         return; // Verificar antes de actualizar el estado de error
       }
       _errorMessage = 'Error al cargar las guías: ${e.toString()}';
-      LoggerService.error('Error al cargar guías: $e');
     } finally {
       if (_mounted) {
         // Solo notificar si seguimos montados
@@ -213,17 +211,13 @@ class HistorialController extends ChangeNotifier {
           if (archivo.isCsv) {
             tempCsv.add(archivo);
           }
-        } catch (e) {
-          LoggerService.error(
-              'Error al procesar archivo CSV ${entity.path}: $e');
-        }
+        } catch (e) {}
       }
 
       // Ordenar por fecha de creación (más reciente primero)
       tempCsv.sort((a, b) => b.creationDate.compareTo(a.creationDate));
       _archivosCsv = tempCsv;
     } catch (e) {
-      LoggerService.error('Error al cargar archivos CSV locales: $e');
       _archivosCsv = [];
     }
   }
@@ -233,16 +227,10 @@ class HistorialController extends ChangeNotifier {
       // Si es un archivo local (tiene ruta completa)
       if (archivo.fullPath.isNotEmpty) {
         final result = await OpenFile.open(archivo.fullPath);
-        LoggerService.info(
-            'Resultado al abrir archivo local: ${result.message}');
         return result.type == ResultType.done;
       }
       // Si es un archivo del backend (no tiene ruta completa)
       else {
-        LoggerService.info(
-            'Intentando abrir archivo del backend: ${archivo.fileName}');
-
-        // Buscar la guía correspondiente en el provider
         Guia? guiaEncontrada;
         try {
           // Intentamos buscar primero por nombre exacto
@@ -252,22 +240,16 @@ class HistorialController extends ChangeNotifier {
           );
         } catch (e) {
           // Si no encontramos por nombre exacto, buscamos por nombre parcial
-          LoggerService.info(
-              'Nombre exacto no encontrado, buscando por coincidencia parcial');
           for (var guia in _guiaProvider.guias) {
             if (archivo.fileName.contains(guia.nombre) ||
                 guia.nombre.contains(archivo.fileName)) {
               guiaEncontrada = guia;
-              LoggerService.info(
-                  'Coincidencia parcial encontrada: ${guia.nombre}');
               break;
             }
           }
 
           // Si aún no encontramos, usamos el primer elemento como fallback
           if (guiaEncontrada == null && _guiaProvider.guias.isNotEmpty) {
-            LoggerService.warning(
-                'Usando primera guía disponible como fallback');
             guiaEncontrada = _guiaProvider.guias.first;
           }
         }
@@ -275,52 +257,36 @@ class HistorialController extends ChangeNotifier {
         if (guiaEncontrada == null) {
           _errorMessage = 'No se encontró la guía en el servidor';
           notifyListeners();
-          LoggerService.error(
-              'Guía no encontrada en el backend: ${archivo.fileName}');
           return false;
         }
-
-        LoggerService.info('Descargando guía con ID: ${guiaEncontrada.id}');
 
         // Descargar el archivo
         final bytes = await _guiaProvider.downloadGuia(guiaEncontrada.id);
         if (bytes == null) {
           _errorMessage = 'No se pudo descargar la guía';
           notifyListeners();
-          LoggerService.error(
-              'Error al descargar bytes de la guía: ${guiaEncontrada.id}. Error: ${_guiaProvider.error}');
           return false;
         }
-
-        LoggerService.info(
-            'Guía descargada correctamente. Tamaño: ${bytes.length} bytes');
 
         try {
           // Guardar temporalmente y abrir
           final tempDir = Directory('/storage/emulated/0/Download/Guias/temp');
           if (!await tempDir.exists()) {
             await tempDir.create(recursive: true);
-            LoggerService.info('Directorio temporal creado: ${tempDir.path}');
           }
 
           final tempFile = File('${tempDir.path}/${archivo.fileName}');
           await tempFile.writeAsBytes(bytes);
-          LoggerService.info('Archivo temporal guardado: ${tempFile.path}');
 
           final result = await OpenFile.open(tempFile.path);
-          LoggerService.info(
-              'Resultado al abrir archivo descargado: ${result.message} (${result.type})');
           return result.type == ResultType.done;
         } catch (fileError) {
-          LoggerService.error(
-              'Error al guardar o abrir el archivo temporal: $fileError');
           _errorMessage = 'Error al abrir el archivo descargado: $fileError';
           notifyListeners();
           return false;
         }
       }
     } catch (e) {
-      LoggerService.error('Error al abrir archivo: $e');
       _errorMessage = 'No se pudo abrir el archivo: $e';
       notifyListeners();
       return false;
@@ -350,8 +316,6 @@ class HistorialController extends ChangeNotifier {
         // Por ahora solo actualizamos la lista local
         _archivosPdf.removeWhere((a) => a.fileName == archivo.fileName);
         notifyListeners();
-        LoggerService.warning(
-            'Eliminación de guías en el backend no implementada');
         return true;
       }
     } catch (e) {

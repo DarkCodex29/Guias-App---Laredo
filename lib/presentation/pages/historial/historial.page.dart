@@ -6,7 +6,6 @@ import 'package:app_guias/core/constants/app.colors.dart';
 import 'package:app_guias/providers/auth.provider.dart';
 import 'package:app_guias/providers/guia.provider.dart';
 import 'package:app_guias/presentation/widgets/custom.card.dart';
-import 'package:app_guias/services/log/logger.service.dart';
 
 class HistorialPage extends StatelessWidget {
   const HistorialPage({super.key});
@@ -123,16 +122,7 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
   // Controles de paginación para cada tab
   Widget _buildTabPaginationControls(BuildContext context,
       HistorialController controller, GuiaProvider guiaProvider, bool isPdf) {
-    // Verificar si el widget sigue montado
     if (!mounted) return Container();
-
-    // Registrar información para depuración
-    LoggerService.info(
-        '===== INFO CONTROLES PAGINACIÓN ${isPdf ? "PDF" : "CSV"} =====');
-    LoggerService.info('Page: ${guiaProvider.currentPage}');
-    LoggerService.info('TotalPages: ${guiaProvider.totalPages}');
-    LoggerService.info('===================================');
-
     return Container(
       height: 56,
       color: Colors.grey[200],
@@ -243,14 +233,6 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
     final authProvider = context.read<AuthProvider>();
     final isAdmin = authProvider.role == 'ADMINISTRADOR';
 
-    // Registrar información para depuración
-    LoggerService.info('===== ESTADO ACTUAL =====');
-    LoggerService.info('archivos.length: ${archivos.length}');
-    LoggerService.info('currentPage: ${guiaProvider.currentPage}');
-    LoggerService.info('totalPages: ${guiaProvider.totalPages}');
-    LoggerService.info('========================');
-
-    // Mostrar indicador de carga solo en el apartado PDF
     if (isPdf && controller.isLoadingPage) {
       return const Center(
         child: Column(
