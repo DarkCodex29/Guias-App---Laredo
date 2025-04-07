@@ -81,12 +81,53 @@ class UsoInternoPage extends StatelessWidget {
                         controller: controller.codigoCamion,
                         readOnly: false,
                         type: TextFieldType.number,
-                        maxLength: 6,
+                        maxLength:
+                            controller.requiereBusquedaManualCamion ? null : 6,
                         keyboardType: TextInputType.number,
                         errorText: controller.getError('codigoCamion'),
                         onChanged: (value) =>
                             controller.validateField('codigoCamion', value),
+                        isLoading: controller.isLoadingCamion,
+                        actionIcon: controller.requiereBusquedaManualCamion
+                            ? Icons.search
+                            : null,
+                        onActionPressed: controller.requiereBusquedaManualCamion
+                            ? () {
+                                if (controller.codigoCamion.text.isNotEmpty) {
+                                  controller.buscarCamionYTransportista(
+                                    controller.codigoCamion.text,
+                                    context.read<EquipoProvider>(),
+                                    context.read<TransportistaProvider>(),
+                                  );
+                                }
+                              }
+                            : null,
                       ),
+                      // Mensaje de error al buscar camión
+                      if (controller.errorMessageCamion != null)
+                        Container(
+                          margin: const EdgeInsets.only(top: 8),
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.red.shade300),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.error_outline,
+                                  color: Colors.red),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  controller.errorMessageCamion!,
+                                  style: const TextStyle(color: Colors.red),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      // Información del tipo de equipo (cuando viene de la búsqueda previa)
                       if (controller.tieneEquipo)
                         Container(
                           margin: const EdgeInsets.only(top: 8),
@@ -101,9 +142,36 @@ class UsoInternoPage extends StatelessWidget {
                               const Icon(Icons.check_circle,
                                   color: Colors.green),
                               const SizedBox(width: 8),
-                              Text(
-                                'Tipo de equipo: ${controller.tipoEquipo}',
-                                style: const TextStyle(color: Colors.green),
+                              Expanded(
+                                child: Text(
+                                  'Tipo de equipo: ${controller.tipoEquipo}',
+                                  style: const TextStyle(color: Colors.green),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      // Información del transportista (solo cuando se hace búsqueda manual)
+                      if (!controller.tieneEquipo &&
+                          controller.transportistaCamion != null)
+                        Container(
+                          margin: const EdgeInsets.only(top: 8),
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.green.shade300),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.check_circle,
+                                  color: Colors.green),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Transportista: ${controller.transportistaCamion?.transportista}',
+                                  style: const TextStyle(color: Colors.green),
+                                ),
                               ),
                             ],
                           ),

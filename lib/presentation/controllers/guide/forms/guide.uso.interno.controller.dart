@@ -62,6 +62,12 @@ class UsoInternoController extends ChangeNotifier {
   String? errorMessageAlzadora;
   String? tipoAlzadora;
 
+  // Variables para estado de búsqueda de camión
+  bool isLoadingCamion = false;
+  String? errorMessageCamion;
+  String? tipoCamion;
+  VistaTransportista? transportistaCamion;
+
   final Map<String, String?> _errors = {
     'numLiberacion': null,
     'codigoCamion': null,
@@ -389,6 +395,12 @@ class UsoInternoController extends ChangeNotifier {
     errorMessageAlzadora = null;
     tipoAlzadora = null;
 
+    // Limpiar estados de camión
+    isLoadingCamion = false;
+    errorMessageCamion = null;
+    tipoCamion = null;
+    transportistaCamion = null;
+
     _updateFieldProgress();
     notifyListeners();
   }
@@ -409,11 +421,13 @@ class UsoInternoController extends ChangeNotifier {
     final choferCamionNombre = nombreChoferCamion ?? '';
     final operAlzadoraNombre = nombreChoferAlzadora ?? '';
     final corteroNombre = transportistaCortero?.transportista ?? '';
+    final transportistaCamionNombre = transportistaCamion?.transportista ?? '';
 
     return {
       'observaciones': [
         'Liberacion: ${numLiberacion.text}',
         'Camion: ${codigoCamion.text}',
+        'Transp. Camion: $transportistaCamionNombre',
         'Chofer: ${codigoChoferCamion.text} $choferCamionNombre',
         'Carreta: ${codigoCarreta.text}',
         'Alzadora: ${codigoAlzadora.text}',
@@ -500,5 +514,58 @@ class UsoInternoController extends ChangeNotifier {
       isLoadingCortero = false;
       notifyListeners();
     }
+  }
+
+  // Método para buscar el camión y su transportista asociado
+  Future<void> buscarCamionYTransportista(
+      String codigo,
+      EquipoProvider equipoProvider,
+      TransportistaProvider transportistaProvider) async {
+    if (codigo.isEmpty) return;
+
+    isLoadingCamion = true;
+    errorMessageCamion = null;
+    tipoCamion = null;
+    transportistaCamion = null;
+    notifyListeners();
+
+    try {
+      // Paso 1: Buscar el equipo por código
+      final equipo = await equipoProvider.getEquipoByCodigo(int.parse(codigo));
+
+      if (equipo != null) {
+        tipoCamion = equipo.tipEquipo;
+
+        // Obtener codTransp y verificar que no sea nulo
+        final int codTransporte = equipo.codTransp;
+
+        // Paso 2: Si codTransporte no es nulo, buscar transportista
+        try {
+          final transportista = await transportistaProvider
+              .getTransportistaByCodigo(codTransporte.toString());
+
+          if (transportista != null) {
+            transportistaCamion = transportista;
+          } else {
+            errorMessageCamion = 'No se encontró información del transportista';
+          }
+        } catch (e) {
+          errorMessageCamion = 'Error al buscar transportista: ${e.toString()}';
+        }
+      } else {
+        errorMessageCamion = 'No se encontró el equipo con el código: $codigo';
+      }
+    } catch (e) {
+      errorMessageCamion = 'Error al buscar equipo: ${e.toString()}';
+    } finally {
+      isLoadingCamion = false;
+      notifyListeners();
+    }
+  }
+
+  // Verificar si el código de camión está configurado automáticamente o debe ser ingresado manualmente
+  bool get requiereBusquedaManualCamion {
+    // Si no hay datos de equipo o el código está vacío, se requiere búsqueda manual
+    return !tieneEquipo || equipoData?['codigo'] == null;
   }
 }
