@@ -51,7 +51,6 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
   Widget build(BuildContext context) {
     final controller = context.watch<HistorialController>();
     final authProvider = context.watch<AuthProvider>();
-    final guiaProvider = context.watch<GuiaProvider>();
     final isAdmin = authProvider.role == 'ADMINISTRADOR';
 
     return DefaultTabController(
@@ -123,6 +122,15 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
   Widget _buildTabPaginationControls(BuildContext context,
       HistorialController controller, GuiaProvider guiaProvider, bool isPdf) {
     if (!mounted) return Container();
+
+    // Usar los valores específicos para cada tipo
+    final currentPage =
+        isPdf ? guiaProvider.currentPagePDF : guiaProvider.currentPageCSV;
+    final totalPages =
+        isPdf ? guiaProvider.totalPagesPDF : guiaProvider.totalPagesCSV;
+    final isLoading =
+        isPdf ? controller.isLoadingPagePDF : controller.isLoadingPageCSV;
+
     return Container(
       height: 56,
       color: Colors.grey[200],
@@ -133,34 +141,32 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
           // Botón para ir a la primera página
           IconButton(
             icon: const Icon(Icons.first_page),
-            onPressed: (isPdf && controller.isLoadingPage) ||
-                    guiaProvider.currentPage <= 1
+            onPressed: isLoading || currentPage <= 1
                 ? null
-                : () => controller.goToPage(1),
-            color: (isPdf && controller.isLoadingPage) ||
-                    guiaProvider.currentPage <= 1
-                ? Colors.grey
-                : AppColors.primary,
+                : () => isPdf
+                    ? controller.goToPagePDF(1)
+                    : controller.goToPageCSV(1),
+            color:
+                isLoading || currentPage <= 1 ? Colors.grey : AppColors.primary,
             tooltip: 'Primera página',
           ),
           // Botón para ir a la página anterior
           IconButton(
             icon: const Icon(Icons.arrow_back_ios),
-            onPressed: (isPdf && controller.isLoadingPage) ||
-                    guiaProvider.currentPage <= 1
+            onPressed: isLoading || currentPage <= 1
                 ? null
-                : () => controller.previousPage(),
-            color: (isPdf && controller.isLoadingPage) ||
-                    guiaProvider.currentPage <= 1
-                ? Colors.grey
-                : AppColors.primary,
+                : () => isPdf
+                    ? controller.previousPagePDF()
+                    : controller.previousPageCSV(),
+            color:
+                isLoading || currentPage <= 1 ? Colors.grey : AppColors.primary,
             tooltip: 'Página anterior',
           ),
           const SizedBox(width: 8),
           // Información de paginación
           Expanded(
             child: Center(
-              child: isPdf && controller.isLoadingPage
+              child: isLoading
                   ? Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       mainAxisSize: MainAxisSize.min,
@@ -185,7 +191,7 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
                       ],
                     )
                   : Text(
-                      'Página ${guiaProvider.currentPage} de ${guiaProvider.totalPages}',
+                      'Página $currentPage de $totalPages',
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
@@ -198,12 +204,11 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
           // Botón para ir a la página siguiente
           IconButton(
             icon: const Icon(Icons.arrow_forward_ios),
-            onPressed: (isPdf && controller.isLoadingPage) ||
-                    guiaProvider.currentPage >= guiaProvider.totalPages
+            onPressed: isLoading || currentPage >= totalPages
                 ? null
-                : () => controller.nextPage(),
-            color: (isPdf && controller.isLoadingPage) ||
-                    guiaProvider.currentPage >= guiaProvider.totalPages
+                : () =>
+                    isPdf ? controller.nextPagePDF() : controller.nextPageCSV(),
+            color: isLoading || currentPage >= totalPages
                 ? Colors.grey
                 : AppColors.primary,
             tooltip: 'Página siguiente',
@@ -211,12 +216,12 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
           // Botón para ir a la última página
           IconButton(
             icon: const Icon(Icons.last_page),
-            onPressed: (isPdf && controller.isLoadingPage) ||
-                    guiaProvider.currentPage >= guiaProvider.totalPages
+            onPressed: isLoading || currentPage >= totalPages
                 ? null
-                : () => controller.goToPage(guiaProvider.totalPages),
-            color: (isPdf && controller.isLoadingPage) ||
-                    guiaProvider.currentPage >= guiaProvider.totalPages
+                : () => isPdf
+                    ? controller.goToPagePDF(totalPages)
+                    : controller.goToPageCSV(totalPages),
+            color: isLoading || currentPage >= totalPages
                 ? Colors.grey
                 : AppColors.primary,
             tooltip: 'Última página',
@@ -233,7 +238,15 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
     final authProvider = context.read<AuthProvider>();
     final isAdmin = authProvider.role == 'ADMINISTRADOR';
 
-    if (isPdf && controller.isLoadingPage) {
+    // Usar los valores específicos para cada tipo
+    final currentPage =
+        isPdf ? guiaProvider.currentPagePDF : guiaProvider.currentPageCSV;
+    final totalPages =
+        isPdf ? guiaProvider.totalPagesPDF : guiaProvider.totalPagesCSV;
+    final isLoading =
+        isPdf ? controller.isLoadingPagePDF : controller.isLoadingPageCSV;
+
+    if (isPdf && isLoading) {
       return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -250,7 +263,9 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
       return RefreshIndicator(
         onRefresh: () async {
           if (!mounted) return;
-          return controller.cargarArchivos(isAdmin: isAdmin);
+          return isPdf
+              ? controller.cargarArchivosPDF(isAdmin: isAdmin)
+              : controller.cargarArchivosCSV(isAdmin: isAdmin);
         },
         child: Center(
           child: Column(
@@ -263,10 +278,10 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
                 'No hay archivos ${isPdf ? 'PDF' : 'CSV'} en esta página',
                 style: const TextStyle(fontSize: 16),
               ),
-              if (guiaProvider.totalPages > 1) ...[
+              if (totalPages > 1) ...[
                 const SizedBox(height: 8),
                 Text(
-                  'Página ${guiaProvider.currentPage} de ${guiaProvider.totalPages}',
+                  'Página $currentPage de $totalPages',
                   style: const TextStyle(fontSize: 14, color: Colors.grey),
                 ),
                 const SizedBox(height: 16),
@@ -276,8 +291,10 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
                     ElevatedButton.icon(
                       icon: const Icon(Icons.arrow_back, size: 16),
                       label: const Text('Anterior'),
-                      onPressed: guiaProvider.currentPage > 1
-                          ? () => controller.previousPage()
+                      onPressed: currentPage > 1
+                          ? () => isPdf
+                              ? controller.previousPagePDF()
+                              : controller.previousPageCSV()
                           : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
@@ -288,10 +305,11 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
                     ElevatedButton.icon(
                       icon: const Icon(Icons.arrow_forward, size: 16),
                       label: const Text('Siguiente'),
-                      onPressed:
-                          guiaProvider.currentPage < guiaProvider.totalPages
-                              ? () => controller.nextPage()
-                              : null,
+                      onPressed: currentPage < totalPages
+                          ? () => isPdf
+                              ? controller.nextPagePDF()
+                              : controller.nextPageCSV()
+                          : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: AppColors.white,

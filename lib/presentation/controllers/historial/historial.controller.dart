@@ -120,6 +120,15 @@ class HistorialController extends ChangeNotifier {
   bool get isAdmin => _authProvider.role == 'ADMINISTRADOR';
   bool get mounted => _mounted;
 
+  // Variables para controlar el estado de carga por tipo de archivo
+  bool _isLoadingPagePDF = false;
+  bool _isLoadingPageCSV = false;
+  bool get isLoadingPagePDF => _isLoadingPagePDF;
+  bool get isLoadingPageCSV => _isLoadingPageCSV;
+
+  // Para compatibilidad con código existente
+  bool get isLoadingPage => _isLoadingPagePDF;
+
   @override
   void dispose() {
     _mounted = false;
@@ -325,67 +334,120 @@ class HistorialController extends ChangeNotifier {
     }
   }
 
-  // Métodos para paginación
-  Future<void> nextPage() async {
+  // Métodos para paginación PDF
+  Future<void> nextPagePDF() async {
     if (!_mounted) return;
 
-    if (_guiaProvider.currentPage < _guiaProvider.totalPages) {
-      _isLoadingPage = true; // Activar indicador de carga
+    if (_guiaProvider.currentPagePDF < _guiaProvider.totalPagesPDF) {
+      _isLoadingPagePDF = true;
       notifyListeners();
 
-      // Limpiar las listas antes de cargar nuevos datos
       _archivosPdf.clear();
-      _archivosCsv.clear();
 
-      await _guiaProvider.nextPage();
+      await _guiaProvider.nextPagePDF();
       await cargarArchivos(isAdmin: isAdmin);
 
-      _isLoadingPage = false; // Desactivar indicador de carga
+      _isLoadingPagePDF = false;
       notifyListeners();
     }
   }
 
-  Future<void> previousPage() async {
+  Future<void> previousPagePDF() async {
     if (!_mounted) return;
 
-    if (_guiaProvider.currentPage > 1) {
-      _isLoadingPage = true; // Activar indicador de carga
+    if (_guiaProvider.currentPagePDF > 1) {
+      _isLoadingPagePDF = true;
       notifyListeners();
 
-      // Limpiar las listas antes de cargar nuevos datos
       _archivosPdf.clear();
-      _archivosCsv.clear();
 
-      await _guiaProvider.previousPage();
+      await _guiaProvider.previousPagePDF();
       await cargarArchivos(isAdmin: isAdmin);
 
-      _isLoadingPage = false; // Desactivar indicador de carga
+      _isLoadingPagePDF = false;
       notifyListeners();
     }
   }
 
-  Future<void> goToPage(int page) async {
+  Future<void> goToPagePDF(int page) async {
     if (!_mounted) return;
 
     if (page >= 1 &&
-        page <= _guiaProvider.totalPages &&
-        page != _guiaProvider.currentPage) {
-      _isLoadingPage = true; // Activar indicador de carga
+        page <= _guiaProvider.totalPagesPDF &&
+        page != _guiaProvider.currentPagePDF) {
+      _isLoadingPagePDF = true;
       notifyListeners();
 
-      // Limpiar las listas antes de cargar nuevos datos
       _archivosPdf.clear();
-      _archivosCsv.clear();
 
-      await _guiaProvider.goToPage(page);
+      await _guiaProvider.goToPagePDF(page);
       await cargarArchivos(isAdmin: isAdmin);
 
-      _isLoadingPage = false; // Desactivar indicador de carga
+      _isLoadingPagePDF = false;
       notifyListeners();
     }
   }
 
-  // Agregar variable para controlar el estado de carga de la página
-  bool _isLoadingPage = false;
-  bool get isLoadingPage => _isLoadingPage;
+  // Métodos para paginación CSV
+  Future<void> nextPageCSV() async {
+    if (!_mounted) return;
+
+    if (_guiaProvider.currentPageCSV < _guiaProvider.totalPagesCSV) {
+      _isLoadingPageCSV = true;
+      notifyListeners();
+
+      _archivosCsv = [];
+
+      await _guiaProvider.nextPageCSV();
+      await _cargarArchivosCsvLocales();
+
+      _isLoadingPageCSV = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> previousPageCSV() async {
+    if (!_mounted) return;
+
+    if (_guiaProvider.currentPageCSV > 1) {
+      _isLoadingPageCSV = true;
+      notifyListeners();
+
+      _archivosCsv = [];
+
+      await _guiaProvider.previousPageCSV();
+      await _cargarArchivosCsvLocales();
+
+      _isLoadingPageCSV = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> goToPageCSV(int page) async {
+    if (!_mounted) return;
+
+    if (page >= 1 &&
+        page <= _guiaProvider.totalPagesCSV &&
+        page != _guiaProvider.currentPageCSV) {
+      _isLoadingPageCSV = true;
+      notifyListeners();
+
+      _archivosCsv = [];
+
+      await _guiaProvider.goToPageCSV(page);
+      await _cargarArchivosCsvLocales();
+
+      _isLoadingPageCSV = false;
+      notifyListeners();
+    }
+  }
+
+  // Para compatibilidad con la vista
+  Future<void> cargarArchivosPDF({bool isAdmin = false}) async {
+    return cargarArchivos(isAdmin: isAdmin);
+  }
+
+  Future<void> cargarArchivosCSV({bool isAdmin = false}) async {
+    return _cargarArchivosCsvLocales();
+  }
 }

@@ -8,8 +8,10 @@ class GuiaProvider extends ChangeNotifier {
   List<Guia> _guias = [];
   bool _isLoading = false;
   String? _error;
-  int _currentPage = 1;
-  int _totalPages = 1;
+  int _currentPagePDF = 1;
+  int _totalPagesPDF = 1;
+  int _currentPageCSV = 1;
+  int _totalPagesCSV = 1;
   int _pageSize = 10;
   String? _idUsuario;
 
@@ -21,9 +23,13 @@ class GuiaProvider extends ChangeNotifier {
   List<Guia> get guias => _guias;
   bool get isLoading => _isLoading;
   String? get error => _error;
-  int get currentPage => _currentPage;
-  int get totalPages => _totalPages;
+  int get currentPage => _currentPagePDF;
+  int get totalPages => _totalPagesPDF;
   int get pageSize => _pageSize;
+  int get currentPagePDF => _currentPagePDF;
+  int get totalPagesPDF => _totalPagesPDF;
+  int get currentPageCSV => _currentPageCSV;
+  int get totalPagesCSV => _totalPagesCSV;
 
   void _setLoading(bool value) {
     if (_isLoading != value) {
@@ -48,30 +54,30 @@ class GuiaProvider extends ChangeNotifier {
   }
 
   void _processPaginationResponse(Map<String, dynamic> response) {
-    _currentPage = response['page'] ?? 1;
+    _currentPagePDF = response['page'] ?? 1;
     _pageSize = response['pageSize'] ?? 10;
 
     // Usar directamente totalPages de la respuesta si está disponible
     if (response.containsKey('totalPages')) {
-      _totalPages = response['totalPages'];
+      _totalPagesPDF = response['totalPages'];
     } else if (response.containsKey('total')) {
       // Alternativa: calcular totalPages basado en total y pageSize
       final total = response['total'] as int;
-      _totalPages = (total / _pageSize).ceil();
+      _totalPagesPDF = (total / _pageSize).ceil();
     } else if (response.containsKey('totalCount')) {
       // Si viene como totalCount (formato más común en la API)
       final totalCount = response['totalCount'] as int;
-      _totalPages = (totalCount / _pageSize).ceil();
+      _totalPagesPDF = (totalCount / _pageSize).ceil();
     } else {
       // Valor por defecto
-      _totalPages = 1;
+      _totalPagesPDF = 1;
     }
 
     // Registrar información para depuración
     LoggerService.info('===== INFO PAGINACIÓN =====');
-    LoggerService.info('currentPage: $_currentPage');
+    LoggerService.info('currentPage: $_currentPagePDF');
     LoggerService.info('pageSize: $_pageSize');
-    LoggerService.info('totalPages: $_totalPages');
+    LoggerService.info('totalPages: $_totalPagesPDF');
     if (response.containsKey('total')) {
       LoggerService.info('total: ${response['total']}');
     }
@@ -97,7 +103,7 @@ class GuiaProvider extends ChangeNotifier {
 
     try {
       final response = await _guiaService.getAllGuias(
-        page: page ?? _currentPage,
+        page: page ?? _currentPagePDF,
         pageSize: pageSize ?? _pageSize,
         all: all,
       );
@@ -129,7 +135,7 @@ class GuiaProvider extends ChangeNotifier {
     try {
       final response = await _guiaService.getGuiasByUsuario(
         idUsuario: idUsuario,
-        page: page ?? _currentPage,
+        page: page ?? _currentPagePDF,
         pageSize: pageSize ?? _pageSize,
         all: all,
       );
@@ -209,35 +215,51 @@ class GuiaProvider extends ChangeNotifier {
   }
 
   // Métodos de paginación
-  Future<void> nextPage() async {
-    if (!_isLoading && _currentPage < _totalPages) {
-      if (_idUsuario != null) {
-        await loadGuiasByUsuario(_idUsuario!, page: _currentPage + 1);
-      } else {
-        await loadGuias(page: _currentPage + 1);
-      }
+  Future<void> nextPagePDF() async {
+    if (_currentPagePDF < _totalPagesPDF) {
+      _currentPagePDF++;
+      notifyListeners();
     }
   }
 
-  Future<void> previousPage() async {
-    if (!_isLoading && _currentPage > 1) {
-      if (_idUsuario != null) {
-        await loadGuiasByUsuario(_idUsuario!, page: _currentPage - 1);
-      } else {
-        await loadGuias(page: _currentPage - 1);
-      }
+  Future<void> previousPagePDF() async {
+    if (_currentPagePDF > 1) {
+      _currentPagePDF--;
+      notifyListeners();
     }
   }
 
-  Future<void> goToPage(int page) async {
-    if (!_isLoading && page >= 1 && page <= _totalPages) {
-      if (_idUsuario != null) {
-        await loadGuiasByUsuario(_idUsuario!, page: page);
-      } else {
-        await loadGuias(page: page);
-      }
+  Future<void> goToPagePDF(int page) async {
+    if (page >= 1 && page <= _totalPagesPDF && page != _currentPagePDF) {
+      _currentPagePDF = page;
+      notifyListeners();
     }
   }
+
+  Future<void> nextPageCSV() async {
+    if (_currentPageCSV < _totalPagesCSV) {
+      _currentPageCSV++;
+      notifyListeners();
+    }
+  }
+
+  Future<void> previousPageCSV() async {
+    if (_currentPageCSV > 1) {
+      _currentPageCSV--;
+      notifyListeners();
+    }
+  }
+
+  Future<void> goToPageCSV(int page) async {
+    if (page >= 1 && page <= _totalPagesCSV && page != _currentPageCSV) {
+      _currentPageCSV = page;
+      notifyListeners();
+    }
+  }
+
+  Future<void> nextPage() async => await nextPagePDF();
+  Future<void> previousPage() async => await previousPagePDF();
+  Future<void> goToPage(int page) async => await goToPagePDF(page);
 
   Future<void> refresh() async {
     if (_idUsuario != null) {
@@ -384,5 +406,15 @@ class GuiaProvider extends ChangeNotifier {
     } finally {
       _setLoading(false);
     }
+  }
+
+  void setTotalPagesPDF(int total) {
+    _totalPagesPDF = total;
+    notifyListeners();
+  }
+
+  void setTotalPagesCSV(int total) {
+    _totalPagesCSV = total;
+    notifyListeners();
   }
 }
