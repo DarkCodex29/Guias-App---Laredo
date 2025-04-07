@@ -74,18 +74,16 @@ class TransportePage extends StatelessWidget {
                           errorText: controller.getError('dni'),
                           maxLength: 8,
                           keyboardType: TextInputType.number,
-                          onChanged: (_) => {},
-                          isLoading: controller.isLoadingDni,
-                          actionIcon: Icons.search,
-                          onActionPressed: () {
-                            if (controller.dni.text.length == 8) {
+                          onChanged: (value) {
+                            if (value.length == 8) {
                               controller.buscarEmpleado(
-                                controller.dni.text,
+                                value,
                                 empleadoProvider,
                                 equipoProvider,
                               );
                             }
                           },
+                          isLoading: controller.isLoadingDni,
                         ),
                         const SizedBox(height: 16),
                         if (controller.errorMessage != null)
@@ -114,14 +112,24 @@ class TransportePage extends StatelessWidget {
                           label: 'Nombres',
                           hint: 'Nombres del empleado',
                           controller: controller.nombresController,
-                          enabled: false,
+                          enabled: controller.nombresEditables,
+                          errorText: controller.nombresEditables &&
+                                  controller.nombresController.text.isEmpty
+                              ? 'Este campo es obligatorio'
+                              : null,
+                          onChanged: (value) {},
                         ),
                         const SizedBox(height: 16),
                         CustomTextField(
                           label: 'Apellidos',
                           hint: 'Apellidos del empleado',
                           controller: controller.apellidosController,
-                          enabled: false,
+                          enabled: controller.nombresEditables,
+                          errorText: controller.nombresEditables &&
+                                  controller.apellidosController.text.isEmpty
+                              ? 'Este campo es obligatorio'
+                              : null,
+                          onChanged: (value) {},
                         ),
                         const SizedBox(height: 16),
                         CustomTextField(
@@ -153,18 +161,17 @@ class TransportePage extends StatelessWidget {
                                         controller.placaController.text.length),
                               );
                             }
+
+                            // Buscar equipo cuando se completa la placa (7 caracteres)
+                            if (value.length == 7) {
+                              controller.buscarEquipoPorPlaca(equipoProvider);
+                            }
                           },
                           textCapitalization: TextCapitalization.characters,
                           toUpperCase: true,
                           maxLength: 7, // 3 letras + 1 guion + 3 números
                           enableSuggestions: false,
                           isLoading: controller.isLoadingPlaca,
-                          actionIcon: Icons.search,
-                          onActionPressed: () {
-                            if (controller.placaController.text.isNotEmpty) {
-                              controller.buscarEquipoPorPlaca(equipoProvider);
-                            }
-                          },
                         ),
                         // Mostrar mensaje de error de la placa
                         if (controller.errorMessagePlaca != null)

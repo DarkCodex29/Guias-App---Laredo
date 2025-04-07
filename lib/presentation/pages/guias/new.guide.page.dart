@@ -78,6 +78,21 @@ class _NewGuidePageContent extends StatelessWidget {
               child: ListView(
                 children: [
                   CustomProgressButton(
+                    text: 'Motivo de traslado',
+                    onTap: () => _navigateToForm(
+                      context,
+                      flowController,
+                      GuideStep.motivoTraslado,
+                      const MotivoTrasladoPage(),
+                    ),
+                    status:
+                        _getStatus(flowController, GuideStep.motivoTraslado),
+                    progressValue: flowController.getStepCompletionPercentage(
+                            GuideStep.motivoTraslado) /
+                        100,
+                  ),
+                  const SizedBox(height: 12),
+                  CustomProgressButton(
                     text: 'Partida',
                     onTap: () => _navigateToForm(
                       context,
@@ -144,21 +159,6 @@ class _NewGuidePageContent extends StatelessWidget {
                     status: _getStatus(flowController, GuideStep.detalleCarga),
                     progressValue: flowController.getStepCompletionPercentage(
                             GuideStep.detalleCarga) /
-                        100,
-                  ),
-                  const SizedBox(height: 12),
-                  CustomProgressButton(
-                    text: 'Motivo de traslado',
-                    onTap: () => _navigateToForm(
-                      context,
-                      flowController,
-                      GuideStep.motivoTraslado,
-                      const MotivoTrasladoPage(),
-                    ),
-                    status:
-                        _getStatus(flowController, GuideStep.motivoTraslado),
-                    progressValue: flowController.getStepCompletionPercentage(
-                            GuideStep.motivoTraslado) /
                         100,
                   ),
                   const SizedBox(height: 12),

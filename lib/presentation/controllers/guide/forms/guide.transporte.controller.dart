@@ -21,6 +21,10 @@ class TransporteController extends ChangeNotifier {
   String? errorMessage;
   String? errorMessagePlaca;
 
+  // Variable para controlar si los campos de nombres y apellidos son editables
+  bool _nombresEditables = false;
+  bool get nombresEditables => _nombresEditables;
+
   // Datos del equipo obtenido por placa
   Map<String, dynamic>? equipoData;
 
@@ -43,9 +47,31 @@ class TransporteController extends ChangeNotifier {
   }
 
   void _setupListeners() {
-    dni.addListener(() => _onFieldChanged('dni'));
+    dni.addListener(() {
+      _onFieldChanged('dni');
+      // Realizar búsqueda automática cuando el DNI tiene 8 dígitos
+      if (dni.text.length == 8) {
+        // Solo buscar si no estamos ya en proceso de búsqueda
+        if (!isLoadingDni && _flowController != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            // La búsqueda real se realizará cuando el TextField llame a onChanged en la página
+          });
+        }
+      }
+    });
     licenciaConducir.addListener(() => _onFieldChanged('licenciaConducir'));
-    placaController.addListener(() => _onFieldChanged('placa'));
+    placaController.addListener(() {
+      _onFieldChanged('placa');
+      // Realizar búsqueda automática cuando la placa tiene 7 caracteres
+      if (placaController.text.length == 7) {
+        // Solo buscar si no estamos ya en proceso de búsqueda
+        if (!isLoadingPlaca && _flowController != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            // La búsqueda real se realizará cuando el TextField llame a onChanged en la página
+          });
+        }
+      }
+    });
     nombresController.addListener(() => _onFieldChanged('nombres'));
     apellidosController.addListener(() => _onFieldChanged('apellidos'));
   }
@@ -132,6 +158,12 @@ class TransporteController extends ChangeNotifier {
     _updateFieldProgress();
   }
 
+  // Método para habilitar la edición manual de nombres y apellidos
+  void habilitarEdicionManual(bool habilitar) {
+    _nombresEditables = habilitar;
+    notifyListeners();
+  }
+
   Future<void> buscarEmpleado(String dni, EmpleadoProvider empleadoProvider,
       EquipoProvider equipoProvider) async {
     if (dni.length != 8) return;
@@ -157,18 +189,51 @@ class TransporteController extends ChangeNotifier {
           nombresController.text = nombreCompleto;
           apellidosController.text = '';
         }
+
+        // Si encontramos el empleado, deshabilitamos la edición manual
+        habilitarEdicionManual(false);
       } else {
-        errorMessage = 'No se encontró el empleado';
+        errorMessage =
+            'No se encontró el empleado. Complete manualmente los nombres y apellidos.';
         limpiarDatosEmpleado();
+
+        // Si es transporte público, habilitamos la edición manual
+        if (_flowController != null && esTransportePublico()) {
+          habilitarEdicionManual(true);
+        }
       }
     } catch (e) {
-      errorMessage = 'Error al buscar empleado: ${e.toString()}';
+      errorMessage =
+          'Error al buscar empleado: ${e.toString()}. Complete manualmente los nombres y apellidos.';
       limpiarDatosEmpleado();
+
+      // Si es transporte público, habilitamos la edición manual
+      if (_flowController != null && esTransportePublico()) {
+        habilitarEdicionManual(true);
+      }
     } finally {
       isLoadingDni = false;
       notifyListeners();
       _updateFieldProgress();
     }
+  }
+
+  // Método para verificar si es transporte público (código 01)
+  bool esTransportePublico() {
+    if (_flowController == null) return false;
+
+    final modalidadTexto =
+        _flowController!.motivoTrasladoController.modalidadTraslado.text;
+    String? codigoModalidad;
+
+    _flowController!.motivoTrasladoController.modalidades
+        .forEach((codigo, texto) {
+      if (texto == modalidadTexto) {
+        codigoModalidad = codigo;
+      }
+    });
+
+    return codigoModalidad == '01';
   }
 
   void limpiarDatosEmpleado() {
@@ -183,8 +248,20 @@ class TransporteController extends ChangeNotifier {
       return false;
     }
 
+    // Validación especial para nombres y apellidos
     if (nombresController.text.isEmpty) {
-      errorMessage = 'No se ha seleccionado un empleado válido';
+      if (esTransportePublico() && _nombresEditables) {
+        errorMessage = 'Debe ingresar manualmente los nombres del conductor';
+      } else {
+        errorMessage = 'No se ha seleccionado un empleado válido';
+      }
+      return false;
+    }
+
+    if (apellidosController.text.isEmpty &&
+        esTransportePublico() &&
+        _nombresEditables) {
+      errorMessage = 'Debe ingresar manualmente los apellidos del conductor';
       return false;
     }
 

@@ -13,13 +13,13 @@ import 'package:app_guias/data/repositories/ubigeo_repository_impl.dart';
 import 'package:app_guias/services/firebase.service.dart';
 
 enum GuideStep {
+  motivoTraslado,
   partida,
   llegada,
   destinatario,
   transporte,
   transportista,
   detalleCarga,
-  motivoTraslado,
   usoInterno
 }
 
@@ -102,18 +102,18 @@ class GuideFlowController extends ChangeNotifier {
 
   // Estado del progreso
   final Map<GuideStep, int> _fieldProgress = {
+    GuideStep.motivoTraslado: 0,
     GuideStep.partida: 0,
     GuideStep.llegada: 0,
     GuideStep.destinatario: 0,
     GuideStep.transporte: 0,
     GuideStep.transportista: 0,
     GuideStep.detalleCarga: 0,
-    GuideStep.motivoTraslado: 0,
     GuideStep.usoInterno: 0,
   };
 
   // El paso actual en el flujo
-  GuideStep _currentStep = GuideStep.partida;
+  GuideStep _currentStep = GuideStep.motivoTraslado;
 
   GuideStep get currentStep => _currentStep;
 

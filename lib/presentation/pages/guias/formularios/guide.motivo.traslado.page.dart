@@ -70,7 +70,10 @@ class MotivoTrasladoPage extends StatelessWidget {
                         suggestions: controller.modalidades.values.toList(),
                         enableSuggestions: true,
                         errorText: controller.getError('modalidadTraslado'),
-                        onChanged: (_) => {},
+                        onChanged: (value) {
+                          // Notificar al controlador del cambio de modalidad
+                          controller.onModalidadChanged();
+                        },
                       ),
                       const SizedBox(height: 16),
                       CustomTextField(

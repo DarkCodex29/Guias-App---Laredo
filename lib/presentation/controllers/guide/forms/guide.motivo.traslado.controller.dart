@@ -167,4 +167,35 @@ class MotivoTrasladoController extends ChangeNotifier {
       'motivoTraslado': motivoCodigo, // '01' a '14'
     };
   }
+
+  // Método para notificar que cambió la modalidad de traslado
+  void onModalidadChanged() {
+    if (_flowController == null) return;
+
+    // Verificar que el controlador de transporte exista y esté inicializado
+    if (_flowController!.transporteController.isInitialized) {
+      // Verificar si es transporte público y necesita edición manual
+      if (esTransportePublico() &&
+          _flowController!.transporteController.dni.text.isEmpty) {
+        // Habilitar la edición manual
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _flowController!.transporteController.habilitarEdicionManual(true);
+        });
+      }
+    }
+  }
+
+  // Verificar si la modalidad seleccionada es transporte público (código 01)
+  bool esTransportePublico() {
+    final modalidadTexto = modalidadTraslado.text;
+    String? codigoModalidad;
+
+    modalidades.forEach((codigo, texto) {
+      if (texto == modalidadTexto) {
+        codigoModalidad = codigo;
+      }
+    });
+
+    return codigoModalidad == '01';
+  }
 }
