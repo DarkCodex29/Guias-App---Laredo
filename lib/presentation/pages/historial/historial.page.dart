@@ -6,6 +6,7 @@ import 'package:app_guias/core/constants/app.colors.dart';
 import 'package:app_guias/providers/auth.provider.dart';
 import 'package:app_guias/providers/guia.provider.dart';
 import 'package:app_guias/presentation/widgets/custom.card.dart';
+import 'package:app_guias/services/log/logger.service.dart';
 
 class HistorialPage extends StatelessWidget {
   const HistorialPage({super.key});
@@ -89,54 +90,146 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
             ? const Center(child: CircularProgressIndicator())
             : TabBarView(
                 children: [
-                  _buildFileList(controller.archivosPdf, controller, context,
+                  _buildTabContent(controller.archivosPdf, controller, context,
                       isPdf: true),
-                  _buildFileList(controller.archivosCsv, controller, context,
+                  _buildTabContent(controller.archivosCsv, controller, context,
                       isPdf: false),
                 ],
               ),
-        bottomNavigationBar:
-            _buildPaginationControls(context, controller, guiaProvider),
       ),
     );
   }
 
-  Widget? _buildPaginationControls(BuildContext context,
-      HistorialController controller, GuiaProvider guiaProvider) {
-    // Verificar si el widget sigue montado
-    if (!mounted) return null;
+  // Nuevo método para construir el contenido completo de cada tab, incluyendo la paginación
+  Widget _buildTabContent(List<GuideFile> archivos,
+      HistorialController controller, BuildContext context,
+      {required bool isPdf}) {
+    final guiaProvider = context.watch<GuiaProvider>();
 
-    // Solo mostrar paginación si hay guías y más de una página
-    if (controller.archivosPdf.isEmpty || guiaProvider.totalPages <= 1) {
-      return null;
-    }
+    return Column(
+      children: [
+        // Lista de archivos (ahora ocupa todo el espacio excepto la paginación)
+        Expanded(
+          child: _buildFileList(archivos, controller, context, isPdf: isPdf),
+        ),
+
+        // Controles de paginación específicos para cada tab
+        if (guiaProvider.totalPages > 1)
+          _buildTabPaginationControls(context, controller, guiaProvider, isPdf),
+      ],
+    );
+  }
+
+  // Controles de paginación para cada tab
+  Widget _buildTabPaginationControls(BuildContext context,
+      HistorialController controller, GuiaProvider guiaProvider, bool isPdf) {
+    // Verificar si el widget sigue montado
+    if (!mounted) return Container();
+
+    // Registrar información para depuración
+    LoggerService.info(
+        '===== INFO CONTROLES PAGINACIÓN ${isPdf ? "PDF" : "CSV"} =====');
+    LoggerService.info('Page: ${guiaProvider.currentPage}');
+    LoggerService.info('TotalPages: ${guiaProvider.totalPages}');
+    LoggerService.info('===================================');
 
     return Container(
-      height: 50,
+      height: 56,
       color: Colors.grey[200],
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          // Botón para ir a la primera página
           IconButton(
-            icon: const Icon(Icons.arrow_back_ios),
-            onPressed: guiaProvider.currentPage <= 1
+            icon: const Icon(Icons.first_page),
+            onPressed: (isPdf && controller.isLoadingPage) ||
+                    guiaProvider.currentPage <= 1
                 ? null
-                : () => controller.previousPage(),
-            color:
-                guiaProvider.currentPage <= 1 ? Colors.grey : AppColors.primary,
-          ),
-          Text(
-            'Página ${guiaProvider.currentPage} de ${guiaProvider.totalPages}',
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-          IconButton(
-            icon: const Icon(Icons.arrow_forward_ios),
-            onPressed: guiaProvider.currentPage >= guiaProvider.totalPages
-                ? null
-                : () => controller.nextPage(),
-            color: guiaProvider.currentPage >= guiaProvider.totalPages
+                : () => controller.goToPage(1),
+            color: (isPdf && controller.isLoadingPage) ||
+                    guiaProvider.currentPage <= 1
                 ? Colors.grey
                 : AppColors.primary,
+            tooltip: 'Primera página',
+          ),
+          // Botón para ir a la página anterior
+          IconButton(
+            icon: const Icon(Icons.arrow_back_ios),
+            onPressed: (isPdf && controller.isLoadingPage) ||
+                    guiaProvider.currentPage <= 1
+                ? null
+                : () => controller.previousPage(),
+            color: (isPdf && controller.isLoadingPage) ||
+                    guiaProvider.currentPage <= 1
+                ? Colors.grey
+                : AppColors.primary,
+            tooltip: 'Página anterior',
+          ),
+          const SizedBox(width: 8),
+          // Información de paginación
+          Expanded(
+            child: Center(
+              child: isPdf && controller.isLoadingPage
+                  ? Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                                AppColors.primary),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Cargando...',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    )
+                  : Text(
+                      'Página ${guiaProvider.currentPage} de ${guiaProvider.totalPages}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Botón para ir a la página siguiente
+          IconButton(
+            icon: const Icon(Icons.arrow_forward_ios),
+            onPressed: (isPdf && controller.isLoadingPage) ||
+                    guiaProvider.currentPage >= guiaProvider.totalPages
+                ? null
+                : () => controller.nextPage(),
+            color: (isPdf && controller.isLoadingPage) ||
+                    guiaProvider.currentPage >= guiaProvider.totalPages
+                ? Colors.grey
+                : AppColors.primary,
+            tooltip: 'Página siguiente',
+          ),
+          // Botón para ir a la última página
+          IconButton(
+            icon: const Icon(Icons.last_page),
+            onPressed: (isPdf && controller.isLoadingPage) ||
+                    guiaProvider.currentPage >= guiaProvider.totalPages
+                ? null
+                : () => controller.goToPage(guiaProvider.totalPages),
+            color: (isPdf && controller.isLoadingPage) ||
+                    guiaProvider.currentPage >= guiaProvider.totalPages
+                ? Colors.grey
+                : AppColors.primary,
+            tooltip: 'Última página',
           ),
         ],
       ),
@@ -146,26 +239,92 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
   Widget _buildFileList(List<GuideFile> archivos,
       HistorialController controller, BuildContext context,
       {required bool isPdf}) {
-    if (archivos.isEmpty) {
-      return Center(
+    final guiaProvider = context.watch<GuiaProvider>();
+    final authProvider = context.read<AuthProvider>();
+    final isAdmin = authProvider.role == 'ADMINISTRADOR';
+
+    // Registrar información para depuración
+    LoggerService.info('===== ESTADO ACTUAL =====');
+    LoggerService.info('archivos.length: ${archivos.length}');
+    LoggerService.info('currentPage: ${guiaProvider.currentPage}');
+    LoggerService.info('totalPages: ${guiaProvider.totalPages}');
+    LoggerService.info('========================');
+
+    // Mostrar indicador de carga solo en el apartado PDF
+    if (isPdf && controller.isLoadingPage) {
+      return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(isPdf ? Icons.picture_as_pdf : Icons.description,
-                size: 48, color: Colors.grey),
-            const SizedBox(height: 16),
-            Text(
-              'No hay archivos ${isPdf ? 'PDF' : 'CSV'} disponibles',
-              style: const TextStyle(fontSize: 16),
-            ),
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Cargando página...'),
           ],
         ),
       );
     }
 
+    if (archivos.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: () async {
+          if (!mounted) return;
+          return controller.cargarArchivos(isAdmin: isAdmin);
+        },
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(isPdf ? Icons.picture_as_pdf : Icons.description,
+                  size: 48, color: Colors.grey),
+              const SizedBox(height: 16),
+              Text(
+                'No hay archivos ${isPdf ? 'PDF' : 'CSV'} en esta página',
+                style: const TextStyle(fontSize: 16),
+              ),
+              if (guiaProvider.totalPages > 1) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Página ${guiaProvider.currentPage} de ${guiaProvider.totalPages}',
+                  style: const TextStyle(fontSize: 14, color: Colors.grey),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.arrow_back, size: 16),
+                      label: const Text('Anterior'),
+                      onPressed: guiaProvider.currentPage > 1
+                          ? () => controller.previousPage()
+                          : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: AppColors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.arrow_forward, size: 16),
+                      label: const Text('Siguiente'),
+                      onPressed:
+                          guiaProvider.currentPage < guiaProvider.totalPages
+                              ? () => controller.nextPage()
+                              : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: AppColors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+
     final dateFormat = DateFormat('dd/MM/yyyy HH:mm');
-    final authProvider = context.read<AuthProvider>();
-    final isAdmin = authProvider.role == 'ADMINISTRADOR';
 
     return RefreshIndicator(
       onRefresh: () async {

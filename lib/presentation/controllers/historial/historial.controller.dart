@@ -362,28 +362,66 @@ class HistorialController extends ChangeNotifier {
   }
 
   // Métodos para paginación
-  void nextPage() {
-    if (!_mounted) {
-      return; // Verificar si el controlador sigue montado
-    }
-    if (!_isLoading) {
-      _guiaProvider.nextPage();
-      cargarArchivos(isAdmin: isAdmin);
+  Future<void> nextPage() async {
+    if (!_mounted) return;
+
+    if (_guiaProvider.currentPage < _guiaProvider.totalPages) {
+      _isLoadingPage = true; // Activar indicador de carga
+      notifyListeners();
+
+      // Limpiar las listas antes de cargar nuevos datos
+      _archivosPdf.clear();
+      _archivosCsv.clear();
+
+      await _guiaProvider.nextPage();
+      await cargarArchivos(isAdmin: isAdmin);
+
+      _isLoadingPage = false; // Desactivar indicador de carga
+      notifyListeners();
     }
   }
 
-  void previousPage() {
-    if (!_mounted) {
-      return; // Verificar si el controlador sigue montado
-    }
-    if (!_isLoading) {
-      _guiaProvider.previousPage();
-      cargarArchivos(isAdmin: isAdmin);
+  Future<void> previousPage() async {
+    if (!_mounted) return;
+
+    if (_guiaProvider.currentPage > 1) {
+      _isLoadingPage = true; // Activar indicador de carga
+      notifyListeners();
+
+      // Limpiar las listas antes de cargar nuevos datos
+      _archivosPdf.clear();
+      _archivosCsv.clear();
+
+      await _guiaProvider.previousPage();
+      await cargarArchivos(isAdmin: isAdmin);
+
+      _isLoadingPage = false; // Desactivar indicador de carga
+      notifyListeners();
     }
   }
 
   Future<void> goToPage(int page) async {
-    await _guiaProvider.goToPage(page);
-    await cargarArchivos();
+    if (!_mounted) return;
+
+    if (page >= 1 &&
+        page <= _guiaProvider.totalPages &&
+        page != _guiaProvider.currentPage) {
+      _isLoadingPage = true; // Activar indicador de carga
+      notifyListeners();
+
+      // Limpiar las listas antes de cargar nuevos datos
+      _archivosPdf.clear();
+      _archivosCsv.clear();
+
+      await _guiaProvider.goToPage(page);
+      await cargarArchivos(isAdmin: isAdmin);
+
+      _isLoadingPage = false; // Desactivar indicador de carga
+      notifyListeners();
+    }
   }
+
+  // Agregar variable para controlar el estado de carga de la página
+  bool _isLoadingPage = false;
+  bool get isLoadingPage => _isLoadingPage;
 }

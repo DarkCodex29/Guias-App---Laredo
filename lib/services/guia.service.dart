@@ -288,6 +288,7 @@ class GuiaService {
     required String idUsuario,
     int page = 1,
     int pageSize = 50,
+    bool all = false,
   }) async {
     try {
       // Verificar si el token está configurado
@@ -317,7 +318,7 @@ class GuiaService {
       final String endpoint =
           ApiEndpoints.guiasByUsuario.replaceAll('{idUsuario}', idUsuario);
       LoggerService.info(
-          'URL de la solicitud: $endpoint con parámetros: page=$page, pageSize=$pageSize, all=true');
+          'URL de la solicitud: $endpoint con parámetros: page=$page, pageSize=$pageSize, all=$all');
 
       // Mostrar la URL completa incluyendo el host base
       LoggerService.info('URL completa: ${baseUrl + endpoint}');
@@ -327,7 +328,7 @@ class GuiaService {
         queryParameters: {
           'page': page,
           'pageSize': pageSize,
-          'all': true,
+          'all': all,
         },
       );
 
@@ -357,20 +358,27 @@ class GuiaService {
             'success': true,
             'data': response.data,
             'total': response.data.length,
+            'totalPages': 1,
             'page': page,
             'pageSize': pageSize,
+            'hasNext': false,
+            'hasPrevious': false,
           };
         }
 
         // CASO 2: La respuesta es un objeto con propiedad 'data'
         if (response.data is Map && response.data.containsKey('data')) {
           LoggerService.info('La respuesta es un objeto con propiedad data');
+          LoggerService.info('Respuesta completa: ${response.data}');
           return {
             'success': true,
             'data': response.data['data'] ?? [],
-            'total': response.data['total'] ?? 0,
+            'total': response.data['totalCount'] ?? 0,
+            'totalPages': response.data['totalPages'] ?? 1,
             'page': response.data['page'] ?? page,
             'pageSize': response.data['pageSize'] ?? pageSize,
+            'hasNext': response.data['hasNext'] ?? false,
+            'hasPrevious': response.data['hasPrevious'] ?? false,
           };
         }
 
@@ -381,8 +389,11 @@ class GuiaService {
           'success': true,
           'data': response.data, // Devolvemos lo que sea que recibimos
           'total': 1,
+          'totalPages': 1,
           'page': page,
           'pageSize': pageSize,
+          'hasNext': false,
+          'hasPrevious': false,
         };
       }
 
@@ -443,23 +454,32 @@ class GuiaService {
   }
 
   // GET /api/guias - Obtener todas las guías
-  Future<Map<String, dynamic>> getAllGuias({int? page, int? pageSize}) async {
+  Future<Map<String, dynamic>> getAllGuias(
+      {int? page, int? pageSize, bool all = false}) async {
     try {
       final response = await _dio.get(
         ApiEndpoints.guias,
         queryParameters: {
           if (page != null) 'page': page,
           if (pageSize != null) 'pageSize': pageSize,
+          'all': all,
         },
       );
 
       if (response.statusCode == 200 && response.data != null) {
+        // Registrar los datos completos de la respuesta para depuración
+        LoggerService.info(
+            'Respuesta completa de getAllGuias: ${response.data}');
+
         return {
           'success': true,
           'data': response.data['data'] ?? [],
-          'total': response.data['total'] ?? 0,
+          'total': response.data['totalCount'] ?? 0,
+          'totalPages': response.data['totalPages'] ?? 1,
           'page': response.data['page'] ?? page,
           'pageSize': response.data['pageSize'] ?? pageSize,
+          'hasNext': response.data['hasNext'] ?? false,
+          'hasPrevious': response.data['hasPrevious'] ?? false,
         };
       }
 

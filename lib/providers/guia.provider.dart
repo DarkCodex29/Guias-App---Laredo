@@ -50,11 +50,46 @@ class GuiaProvider extends ChangeNotifier {
   void _processPaginationResponse(Map<String, dynamic> response) {
     _currentPage = response['page'] ?? 1;
     _pageSize = response['pageSize'] ?? 10;
-    _totalPages = (response['total'] / _pageSize).ceil();
+
+    // Usar directamente totalPages de la respuesta si está disponible
+    if (response.containsKey('totalPages')) {
+      _totalPages = response['totalPages'];
+    } else if (response.containsKey('total')) {
+      // Alternativa: calcular totalPages basado en total y pageSize
+      final total = response['total'] as int;
+      _totalPages = (total / _pageSize).ceil();
+    } else if (response.containsKey('totalCount')) {
+      // Si viene como totalCount (formato más común en la API)
+      final totalCount = response['totalCount'] as int;
+      _totalPages = (totalCount / _pageSize).ceil();
+    } else {
+      // Valor por defecto
+      _totalPages = 1;
+    }
+
+    // Registrar información para depuración
+    LoggerService.info('===== INFO PAGINACIÓN =====');
+    LoggerService.info('currentPage: $_currentPage');
+    LoggerService.info('pageSize: $_pageSize');
+    LoggerService.info('totalPages: $_totalPages');
+    if (response.containsKey('total')) {
+      LoggerService.info('total: ${response['total']}');
+    }
+    if (response.containsKey('totalCount')) {
+      LoggerService.info('totalCount: ${response['totalCount']}');
+    }
+    if (response.containsKey('hasNext')) {
+      LoggerService.info('hasNext: ${response['hasNext']}');
+    }
+    if (response.containsKey('hasPrevious')) {
+      LoggerService.info('hasPrevious: ${response['hasPrevious']}');
+    }
+    LoggerService.info('==========================');
   }
 
   // Obtener todas las guías
-  Future<void> loadGuias({int? page, int? pageSize}) async {
+  Future<void> loadGuias(
+      {int? page, int? pageSize = 10, bool all = false}) async {
     if (_isLoading) return;
 
     _setLoading(true);
@@ -64,6 +99,7 @@ class GuiaProvider extends ChangeNotifier {
       final response = await _guiaService.getAllGuias(
         page: page ?? _currentPage,
         pageSize: pageSize ?? _pageSize,
+        all: all,
       );
 
       if (_validateResponse(response)) {
@@ -83,7 +119,7 @@ class GuiaProvider extends ChangeNotifier {
 
   // Obtener guías por ID de usuario
   Future<void> loadGuiasByUsuario(String idUsuario,
-      {int? page, int? pageSize}) async {
+      {int? page, int? pageSize = 10, bool all = false}) async {
     if (_isLoading) return;
     _idUsuario = idUsuario;
 
@@ -95,6 +131,7 @@ class GuiaProvider extends ChangeNotifier {
         idUsuario: idUsuario,
         page: page ?? _currentPage,
         pageSize: pageSize ?? _pageSize,
+        all: all,
       );
 
       if (_validateResponse(response)) {
