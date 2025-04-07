@@ -22,7 +22,7 @@ class Guia {
       archivo: json['archivo'] as String?,
       fechaSubida: DateTime.parse(json['fechA_SUBIDA'] as String),
       idUsuario: json['iD_USUARIO'] as int?,
-      usuario: json['usuario'] as String?,
+      usuario: json['usernameUsuario'] as String?,
     );
   }
 
@@ -33,7 +33,7 @@ class Guia {
       'archivo': archivo,
       'fechA_SUBIDA': fechaSubida.toIso8601String(),
       'iD_USUARIO': idUsuario,
-      'usuario': usuario,
+      'usernameUsuario': usuario,
     };
   }
 

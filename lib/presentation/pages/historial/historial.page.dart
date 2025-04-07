@@ -166,7 +166,6 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
     final dateFormat = DateFormat('dd/MM/yyyy HH:mm');
     final authProvider = context.read<AuthProvider>();
     final isAdmin = authProvider.role == 'ADMINISTRADOR';
-    final userName = authProvider.username;
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -257,7 +256,7 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
                   ),
 
                   // Usuario (solo para PDF)
-                  if (isPdf && userName != null)
+                  if (isPdf && archivo.usernameUsuario != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
                       child: RichText(
@@ -270,7 +269,7 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
                               style: TextStyle(fontWeight: FontWeight.bold),
                             ),
                             TextSpan(
-                              text: userName,
+                              text: archivo.usernameUsuario,
                             ),
                           ],
                         ),

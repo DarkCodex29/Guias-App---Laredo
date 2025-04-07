@@ -21,6 +21,7 @@ class GuideFile {
   final String? ruc;
   final String? tipoDocumento;
   final String? serieCorrelativo;
+  final String? usernameUsuario;
 
   GuideFile({
     required this.fileName,
@@ -33,6 +34,7 @@ class GuideFile {
     this.ruc,
     this.tipoDocumento,
     this.serieCorrelativo,
+    this.usernameUsuario,
   });
 
   // Métodos para extraer información del nombre del archivo
@@ -73,6 +75,7 @@ class GuideFile {
       ruc: ruc,
       tipoDocumento: tipoDocumento,
       serieCorrelativo: serieCorrelativo,
+      usernameUsuario: null,
     );
   }
 
@@ -93,6 +96,7 @@ class GuideFile {
       ruc: null, // No tenemos esta información
       tipoDocumento: null, // No tenemos esta información
       serieCorrelativo: serieCorrelativo,
+      usernameUsuario: guia.usuario,
     );
   }
 }
