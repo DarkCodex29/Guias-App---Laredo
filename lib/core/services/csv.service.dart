@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:app_guias/services/log/logger.service.dart';
 import 'package:flutter/foundation.dart';
+import 'package:intl/intl.dart';
 
 class CsvService {
   static const String tipoDocumento = '09'; // Guía de remisión remitente
@@ -76,9 +77,6 @@ class CsvService {
     // Si modalidad es pública (01) - no ingresar datos del vehículo
     final vehiculoData = data['vehiculo'] ?? {};
     if (isPrivado) {
-      // Log para depuración
-      LoggerService.info('DATOS VEHÍCULO: ${vehiculoData.toString()}');
-
       // Validar que la placa no esté vacía para transporte privado
       final placa = vehiculoData['placa'] ?? '';
       if (placa.isEmpty) {
@@ -233,7 +231,8 @@ class CsvService {
         }
         if (item['fechaCorte'] != null &&
             item['fechaCorte'].toString().isNotEmpty) {
-          fechaCorte.add(item['fechaCorte'].toString());
+          fechaCorte.add(
+              DateFormat('dd-MM-yyyy').format(item['fechaCorte']).toString());
         }
       }
 

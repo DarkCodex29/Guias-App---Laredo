@@ -141,6 +141,7 @@ class DetalleCargaController extends ChangeNotifier {
                 'jiron': entry.value.jiron,
                 'cuartel': entry.value.cuartel,
                 'variedad': entry.value.variedad,
+                'fechaCorte': entry.value.fechaCorte,
               })
           .toList(),
       'pesoBruto': calcularPesoEnUnidadCorrecta().toString(),
