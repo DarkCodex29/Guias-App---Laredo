@@ -118,6 +118,7 @@ class TransportePage extends StatelessWidget {
                               ? 'Este campo es obligatorio'
                               : null,
                           onChanged: (value) {},
+                          toUpperCase: true,
                         ),
                         const SizedBox(height: 16),
                         CustomTextField(
@@ -130,6 +131,7 @@ class TransportePage extends StatelessWidget {
                               ? 'Este campo es obligatorio'
                               : null,
                           onChanged: (value) {},
+                          toUpperCase: true,
                         ),
                         const SizedBox(height: 16),
                         CustomTextField(

@@ -193,24 +193,34 @@ class TransporteController extends ChangeNotifier {
         // Si encontramos el empleado, deshabilitamos la edición manual
         habilitarEdicionManual(false);
       } else {
-        errorMessage =
-            'No se encontró el empleado. Complete manualmente los nombres y apellidos.';
-        limpiarDatosEmpleado();
-
-        // Si es transporte público, habilitamos la edición manual
+        // Mensaje diferente según el tipo de transporte
         if (_flowController != null && esTransportePublico()) {
+          errorMessage =
+              'No se encontró el empleado. Complete manualmente los nombres y apellidos.';
+          // Si es transporte público, habilitamos la edición manual
           habilitarEdicionManual(true);
+        } else {
+          // En transporte privado, no se permite edición manual
+          errorMessage =
+              'No se encontró el empleado con el DNI ingresado. El transporte privado requiere un empleado válido.';
+          habilitarEdicionManual(false);
         }
+        limpiarDatosEmpleado();
       }
     } catch (e) {
-      errorMessage =
-          'Error al buscar empleado: ${e.toString()}. Complete manualmente los nombres y apellidos.';
-      limpiarDatosEmpleado();
-
-      // Si es transporte público, habilitamos la edición manual
+      // Mensaje diferente según el tipo de transporte
       if (_flowController != null && esTransportePublico()) {
+        errorMessage =
+            'Error al buscar empleado. Complete manualmente los nombres y apellidos.';
+        // Si es transporte público, habilitamos la edición manual
         habilitarEdicionManual(true);
+      } else {
+        // En transporte privado, no se permite edición manual
+        errorMessage =
+            'Error al buscar empleado. El transporte privado requiere un empleado válido.';
+        habilitarEdicionManual(false);
       }
+      limpiarDatosEmpleado();
     } finally {
       isLoadingDni = false;
       notifyListeners();
@@ -244,13 +254,23 @@ class TransporteController extends ChangeNotifier {
   bool isFormValid() {
     _validateAllFields();
 
+    // Si hay errores de validación en campos validados, el formulario no es válido
     if (_errors.values.any((error) => error != null)) {
       return false;
     }
 
-    // Validación especial para nombres y apellidos
+    // Verificar si es transporte público o privado
+    bool esPublico = esTransportePublico();
+
+    // Validar DNI - obligatorio en ambos casos
+    if (dni.text.isEmpty) {
+      errorMessage = 'El DNI es obligatorio';
+      return false;
+    }
+
+    // Validar nombres - obligatorio en ambos casos
     if (nombresController.text.isEmpty) {
-      if (esTransportePublico() && _nombresEditables) {
+      if (esPublico && _nombresEditables) {
         errorMessage = 'Debe ingresar manualmente los nombres del conductor';
       } else {
         errorMessage = 'No se ha seleccionado un empleado válido';
@@ -258,10 +278,25 @@ class TransporteController extends ChangeNotifier {
       return false;
     }
 
-    if (apellidosController.text.isEmpty &&
-        esTransportePublico() &&
-        _nombresEditables) {
-      errorMessage = 'Debe ingresar manualmente los apellidos del conductor';
+    // Validar apellidos - obligatorio en ambos casos
+    if (apellidosController.text.isEmpty) {
+      if (esPublico && _nombresEditables) {
+        errorMessage = 'Debe ingresar manualmente los apellidos del conductor';
+      } else {
+        errorMessage = 'No se ha seleccionado un empleado válido';
+      }
+      return false;
+    }
+
+    // Validar placa - obligatorio en ambos casos
+    if (placaController.text.isEmpty) {
+      errorMessage = 'La placa es obligatoria';
+      return false;
+    }
+
+    // Validar brevete - obligatorio en ambos casos
+    if (licenciaConducir.text.isEmpty) {
+      errorMessage = 'El brevete es obligatorio';
       return false;
     }
 
