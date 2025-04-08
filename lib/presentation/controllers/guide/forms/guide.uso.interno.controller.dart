@@ -327,6 +327,15 @@ class UsoInternoController extends ChangeNotifier {
         }
       }
 
+      // Para operador de alzadora, también decidir según modalidad de traslado
+      if (tipo == 'alzadora') {
+        // Si es público y tenemos el provider de transportista, usamos ese
+        if (esTrasladoPublico && transportistaProvider != null) {
+          await buscarTransportistaOperador(codigo, transportistaProvider);
+          return;
+        }
+      }
+
       // Para los demás casos, seguimos usando el empleadoProvider
       final response = await empleadoProvider.verificarEmpleado(codigo);
 
@@ -398,6 +407,34 @@ class UsoInternoController extends ChangeNotifier {
           'Error al buscar transportista: ${e.toString()}';
     } finally {
       isLoadingChoferCamion = false;
+      notifyListeners();
+    }
+  }
+
+  // Método para buscar transportista para operador (cuando es público)
+  Future<void> buscarTransportistaOperador(
+      String codigo, TransportistaProvider transportistaProvider) async {
+    isLoadingChoferAlzadora = true;
+    errorMessageChoferAlzadora = null;
+    nombreChoferAlzadora = null;
+    notifyListeners();
+
+    try {
+      final transportista =
+          await transportistaProvider.getTransportistaByCodigo(codigo);
+
+      if (transportista != null) {
+        // En lugar del nombre del operador, guardamos el nombre del transportista
+        nombreChoferAlzadora = transportista.transportista;
+      } else {
+        errorMessageChoferAlzadora = transportistaProvider.error ??
+            'No se encontró el transportista con el código: $codigo';
+      }
+    } catch (e) {
+      errorMessageChoferAlzadora =
+          'Error al buscar transportista: ${e.toString()}';
+    } finally {
+      isLoadingChoferAlzadora = false;
       notifyListeners();
     }
   }

@@ -385,8 +385,6 @@ class UsoInternoPage extends StatelessWidget {
                         controller: controller.codigoOperador,
                         type: TextFieldType.number,
                         errorText: controller.getError('codigoOperador'),
-                        onChanged: (_) => {},
-                        maxLength: 5,
                         isLoading: controller.isLoadingChoferAlzadora,
                         actionIcon: Icons.search,
                         onActionPressed: () {
@@ -395,6 +393,7 @@ class UsoInternoPage extends StatelessWidget {
                               controller.codigoOperador.text,
                               empleadoProvider,
                               'alzadora',
+                              transportistaProvider: transportistaProvider,
                             );
                           }
                         },
@@ -440,7 +439,9 @@ class UsoInternoPage extends StatelessWidget {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  'Empleado: ${controller.nombreChoferAlzadora}',
+                                  controller.esTrasladoPublico
+                                      ? 'Transportista: ${controller.nombreChoferAlzadora}'
+                                      : 'Empleado: ${controller.nombreChoferAlzadora}',
                                   style: const TextStyle(color: Colors.green),
                                 ),
                               ),
