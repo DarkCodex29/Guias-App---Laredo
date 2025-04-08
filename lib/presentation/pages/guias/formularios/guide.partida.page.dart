@@ -155,6 +155,12 @@ class PartidaPage extends StatelessWidget {
                     if (nextStep != null) {
                       Widget page;
                       switch (nextStep) {
+                        case GuideStep.motivoTraslado:
+                          page = const MotivoTrasladoPage();
+                          break;
+                        case GuideStep.partida:
+                          page = const PartidaPage();
+                          break;
                         case GuideStep.llegada:
                           page = const LlegadaPage();
                           break;
@@ -170,14 +176,9 @@ class PartidaPage extends StatelessWidget {
                         case GuideStep.transportista:
                           page = const TransportistaPage();
                           break;
-                        case GuideStep.motivoTraslado:
-                          page = const MotivoTrasladoPage();
-                          break;
                         case GuideStep.usoInterno:
                           page = const UsoInternoPage();
                           break;
-                        default:
-                          return;
                       }
                       Navigator.pushReplacement(
                         context,

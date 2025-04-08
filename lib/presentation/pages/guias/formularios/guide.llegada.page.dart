@@ -1,8 +1,9 @@
 import 'package:app_guias/core/constants/app.colors.dart';
 import 'package:app_guias/presentation/controllers/guide/guide.flow.controller.dart';
+import 'package:app_guias/presentation/pages/guias/formularios/guide.partida.page.dart';
 import 'package:app_guias/presentation/pages/guias/formularios/guide.destinatario.page.dart';
-import 'package:app_guias/presentation/pages/guias/formularios/guide.transporte.page.dart';
 import 'package:app_guias/presentation/pages/guias/formularios/guide.detalle.carga.page.dart';
+import 'package:app_guias/presentation/pages/guias/formularios/guide.transporte.page.dart';
 import 'package:app_guias/presentation/pages/guias/formularios/guide.transportista.page.dart';
 import 'package:app_guias/presentation/pages/guias/formularios/guide.motivo.traslado.page.dart';
 import 'package:app_guias/presentation/pages/guias/formularios/guide.uso.interno.page.dart';
@@ -152,6 +153,15 @@ class LlegadaPage extends StatelessWidget {
                     if (nextStep != null) {
                       Widget page;
                       switch (nextStep) {
+                        case GuideStep.motivoTraslado:
+                          page = const MotivoTrasladoPage();
+                          break;
+                        case GuideStep.partida:
+                          page = const PartidaPage();
+                          break;
+                        case GuideStep.llegada:
+                          page = const LlegadaPage();
+                          break;
                         case GuideStep.destinatario:
                           page = const DestinatarioPage();
                           break;
@@ -164,14 +174,9 @@ class LlegadaPage extends StatelessWidget {
                         case GuideStep.transportista:
                           page = const TransportistaPage();
                           break;
-                        case GuideStep.motivoTraslado:
-                          page = const MotivoTrasladoPage();
-                          break;
                         case GuideStep.usoInterno:
                           page = const UsoInternoPage();
                           break;
-                        default:
-                          return;
                       }
                       Navigator.pushReplacement(
                         context,
