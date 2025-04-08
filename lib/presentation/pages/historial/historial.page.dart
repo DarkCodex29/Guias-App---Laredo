@@ -342,7 +342,7 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
           // Iconos para compartir y abrir
           final List<Widget> actions = [
             IconButton(
-              icon: controller.isSharing
+              icon: controller.isSharingFile(archivo)
                   ? const SizedBox(
                       width: 20,
                       height: 20,
@@ -352,7 +352,7 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
                       ),
                     )
                   : const Icon(Icons.share, color: Colors.green),
-              onPressed: controller.isSharing
+              onPressed: controller.isSharingFile(archivo)
                   ? null
                   : () async {
                       final scaffoldMessenger = ScaffoldMessenger.of(context);

@@ -125,9 +125,11 @@ class HistorialController extends ChangeNotifier {
   bool _isLoadingPagePDF = false;
   bool _isLoadingPageCSV = false;
   bool _isSharing = false;
+  String? _sharingFileId; // Identificador del archivo que se está compartiendo
   bool get isLoadingPagePDF => _isLoadingPagePDF;
   bool get isLoadingPageCSV => _isLoadingPageCSV;
   bool get isSharing => _isSharing;
+  String? get sharingFileId => _sharingFileId;
 
   // Para compatibilidad con código existente
   bool get isLoadingPage => _isLoadingPagePDF;
@@ -610,6 +612,8 @@ class HistorialController extends ChangeNotifier {
   Future<bool> compartirArchivo(GuideFile archivo) async {
     try {
       _isSharing = true;
+      _sharingFileId =
+          archivo.fullPath.isNotEmpty ? archivo.fullPath : archivo.fileName;
       _errorMessage = '';
       notifyListeners();
 
@@ -623,6 +627,7 @@ class HistorialController extends ChangeNotifier {
         );
 
         _isSharing = false;
+        _sharingFileId = null;
         notifyListeners();
         return result.status == ShareResultStatus.success ||
             result.status == ShareResultStatus.dismissed;
@@ -655,6 +660,7 @@ class HistorialController extends ChangeNotifier {
         if (guiaEncontrada == null) {
           _errorMessage = 'No se encontró la guía en el servidor';
           _isSharing = false;
+          _sharingFileId = null;
           notifyListeners();
           return false;
         }
@@ -664,6 +670,7 @@ class HistorialController extends ChangeNotifier {
         if (bytes == null) {
           _errorMessage = 'No se pudo descargar la guía';
           _isSharing = false;
+          _sharingFileId = null;
           notifyListeners();
           return false;
         }
@@ -687,6 +694,7 @@ class HistorialController extends ChangeNotifier {
           );
 
           _isSharing = false;
+          _sharingFileId = null;
           notifyListeners();
           return result.status == ShareResultStatus.success ||
               result.status == ShareResultStatus.dismissed;
@@ -699,11 +707,13 @@ class HistorialController extends ChangeNotifier {
             );
 
             _isSharing = false;
+            _sharingFileId = null;
             notifyListeners();
             return true;
           } catch (textShareError) {
             _errorMessage = 'Error al compartir el archivo: $fileError';
             _isSharing = false;
+            _sharingFileId = null;
             notifyListeners();
             return false;
           }
@@ -712,6 +722,7 @@ class HistorialController extends ChangeNotifier {
     } catch (e) {
       _errorMessage = 'No se pudo compartir el archivo: $e';
       _isSharing = false;
+      _sharingFileId = null;
       notifyListeners();
 
       // Si falla todo lo anterior, intentar compartir solo como texto
@@ -804,5 +815,11 @@ class HistorialController extends ChangeNotifier {
       _isLoadingPageCSV = false;
       notifyListeners();
     }
+  }
+
+  // Método para verificar si un archivo específico se está compartiendo
+  bool isSharingFile(GuideFile file) {
+    if (!_isSharing) return false;
+    return _sharingFileId == file.fullPath || _sharingFileId == file.fileName;
   }
 }
