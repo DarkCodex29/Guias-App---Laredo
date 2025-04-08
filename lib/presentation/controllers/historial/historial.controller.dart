@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as path;
 import 'package:open_file/open_file.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:app_guias/providers/guia.provider.dart';
 import 'package:app_guias/providers/auth.provider.dart';
 import 'package:app_guias/models/guia.dart';
@@ -123,8 +124,10 @@ class HistorialController extends ChangeNotifier {
   // Variables para controlar el estado de carga por tipo de archivo
   bool _isLoadingPagePDF = false;
   bool _isLoadingPageCSV = false;
+  bool _isSharing = false;
   bool get isLoadingPagePDF => _isLoadingPagePDF;
   bool get isLoadingPageCSV => _isLoadingPageCSV;
+  bool get isSharing => _isSharing;
 
   // Para compatibilidad con código existente
   bool get isLoadingPage => _isLoadingPagePDF;
@@ -601,6 +604,127 @@ class HistorialController extends ChangeNotifier {
   // Para compatibilidad con la vista
   Future<void> cargarArchivosPDF({bool isAdmin = false}) async {
     return cargarArchivos(isAdmin: isAdmin);
+  }
+
+  // Método para compartir archivos
+  Future<bool> compartirArchivo(GuideFile archivo) async {
+    try {
+      _isSharing = true;
+      _errorMessage = '';
+      notifyListeners();
+
+      // Si es un archivo local (tiene ruta completa)
+      if (archivo.fullPath.isNotEmpty) {
+        final file = XFile(archivo.fullPath);
+        final result = await Share.shareXFiles(
+          [file],
+          text: 'Compartir ${archivo.fileName}',
+          subject: archivo.fileName,
+        );
+
+        _isSharing = false;
+        notifyListeners();
+        return result.status == ShareResultStatus.success ||
+            result.status == ShareResultStatus.dismissed;
+      }
+      // Si es un archivo del backend (no tiene ruta completa)
+      else {
+        Guia? guiaEncontrada;
+        try {
+          // Intentamos buscar primero por nombre exacto
+          guiaEncontrada = _guiaProvider.guias.firstWhere(
+            (guia) => guia.nombre == archivo.fileName,
+            orElse: () => throw Exception('Nombre exacto no encontrado'),
+          );
+        } catch (e) {
+          // Si no encontramos por nombre exacto, buscamos por nombre parcial
+          for (var guia in _guiaProvider.guias) {
+            if (archivo.fileName.contains(guia.nombre) ||
+                guia.nombre.contains(archivo.fileName)) {
+              guiaEncontrada = guia;
+              break;
+            }
+          }
+
+          // Si aún no encontramos, usamos el primer elemento como fallback
+          if (guiaEncontrada == null && _guiaProvider.guias.isNotEmpty) {
+            guiaEncontrada = _guiaProvider.guias.first;
+          }
+        }
+
+        if (guiaEncontrada == null) {
+          _errorMessage = 'No se encontró la guía en el servidor';
+          _isSharing = false;
+          notifyListeners();
+          return false;
+        }
+
+        // Descargar el archivo
+        final bytes = await _guiaProvider.downloadGuia(guiaEncontrada.id);
+        if (bytes == null) {
+          _errorMessage = 'No se pudo descargar la guía';
+          _isSharing = false;
+          notifyListeners();
+          return false;
+        }
+
+        try {
+          // Guardar temporalmente para compartir
+          final tempDir = Directory('/storage/emulated/0/Download/Guias/temp');
+          if (!await tempDir.exists()) {
+            await tempDir.create(recursive: true);
+          }
+
+          final tempFile = File('${tempDir.path}/${archivo.fileName}');
+          await tempFile.writeAsBytes(bytes);
+
+          // Compartir el archivo usando XFile
+          final file = XFile(tempFile.path);
+          final result = await Share.shareXFiles(
+            [file],
+            text: 'Compartir ${archivo.fileName}',
+            subject: archivo.fileName,
+          );
+
+          _isSharing = false;
+          notifyListeners();
+          return result.status == ShareResultStatus.success ||
+              result.status == ShareResultStatus.dismissed;
+        } catch (fileError) {
+          // Si falla compartir como archivo, intentar compartir solo el texto
+          try {
+            await Share.share(
+              'Archivo: ${archivo.fileName}',
+              subject: 'Compartir guía',
+            );
+
+            _isSharing = false;
+            notifyListeners();
+            return true;
+          } catch (textShareError) {
+            _errorMessage = 'Error al compartir el archivo: $fileError';
+            _isSharing = false;
+            notifyListeners();
+            return false;
+          }
+        }
+      }
+    } catch (e) {
+      _errorMessage = 'No se pudo compartir el archivo: $e';
+      _isSharing = false;
+      notifyListeners();
+
+      // Si falla todo lo anterior, intentar compartir solo como texto
+      try {
+        await Share.share(
+          'Archivo: ${archivo.fileName}',
+          subject: 'Compartir guía',
+        );
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
   }
 
   Future<void> cargarArchivosCSV({bool isAdmin = false}) async {

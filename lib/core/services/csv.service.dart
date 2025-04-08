@@ -212,6 +212,7 @@ class CsvService {
       final jirones = <String>{};
       final cuarteles = <String>{};
       final variedades = <String>{};
+      final fechaCorte = <String>{};
 
       for (final item in data['items']) {
         // Log para depurar cada item
@@ -230,9 +231,17 @@ class CsvService {
             item['variedad'].toString().isNotEmpty) {
           variedades.add(item['variedad'].toString());
         }
+        if (item['fechaCorte'] != null &&
+            item['fechaCorte'].toString().isNotEmpty) {
+          fechaCorte.add(item['fechaCorte'].toString());
+        }
       }
 
-      if (campos.isNotEmpty || jirones.isNotEmpty || cuarteles.isNotEmpty) {
+      if (campos.isNotEmpty ||
+          jirones.isNotEmpty ||
+          cuarteles.isNotEmpty ||
+          variedades.isNotEmpty ||
+          fechaCorte.isNotEmpty) {
         final partes = <String>[];
         if (campos.isNotEmpty) {
           partes.add('Campo: ${campos.join(', ')}');
@@ -245,6 +254,9 @@ class CsvService {
         }
         if (variedades.isNotEmpty) {
           partes.add('Variedad: ${variedades.join(', ')}');
+        }
+        if (fechaCorte.isNotEmpty) {
+          partes.add('Fecha de Corte: ${fechaCorte.join(', ')}');
         }
         infoDetalleCarga = partes.join(' | ');
       }

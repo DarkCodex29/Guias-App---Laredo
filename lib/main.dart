@@ -12,11 +12,15 @@ import 'package:hive/hive.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:share_plus/share_plus.dart';
 import 'presentation/widgets/auth.wrapper.dart';
 
 void main() async {
   try {
     WidgetsFlutterBinding.ensureInitialized();
+
+    // Configurar share_plus
+    Share.downloadFallbackEnabled = true;
 
     // Verificar versión de Android
     final deviceInfo = DeviceInfoPlugin();

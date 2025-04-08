@@ -7,7 +7,6 @@ import 'package:app_guias/presentation/widgets/custom.textfield.dart';
 import 'package:app_guias/providers/empleado.provider.dart';
 import 'package:app_guias/providers/equipo.provider.dart';
 import 'package:app_guias/providers/transportista.provider.dart';
-
 class UsoInternoPage extends StatelessWidget {
   const UsoInternoPage({super.key});
 

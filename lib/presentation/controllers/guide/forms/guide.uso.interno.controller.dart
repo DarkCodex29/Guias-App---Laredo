@@ -507,7 +507,7 @@ class UsoInternoController extends ChangeNotifier {
       'observaciones': [
         'Liberacion: ${numLiberacion.text}',
         'Camion: ${codigoCamion.text}',
-        'Transp. Camion: $transportistaCamionNombre',
+        transportistaCamionNombre,
         'Chofer: ${codigoChoferCamion.text} $choferCamionNombre',
         'Carreta: ${codigoCarreta.text}',
         'Alzadora: ${codigoAlzadora.text}',

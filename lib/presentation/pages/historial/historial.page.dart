@@ -339,10 +339,48 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
               ),
           ];
 
-          // Icono para abrir el archivo
+          // Iconos para compartir y abrir
           final List<Widget> actions = [
             IconButton(
-              icon: const Icon(Icons.open_in_new),
+              icon: controller.isSharing
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
+                      ),
+                    )
+                  : const Icon(Icons.share, color: Colors.green),
+              onPressed: controller.isSharing
+                  ? null
+                  : () async {
+                      final scaffoldMessenger = ScaffoldMessenger.of(context);
+                      final success =
+                          await controller.compartirArchivo(archivo);
+
+                      if (!mounted) return;
+
+                      if (success) {
+                        scaffoldMessenger.showSnackBar(
+                          const SnackBar(
+                            content: Text('Archivo compartido exitosamente'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      } else if (controller.errorMessage.isNotEmpty) {
+                        scaffoldMessenger.showSnackBar(
+                          SnackBar(
+                            content: Text(controller.errorMessage),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    },
+              tooltip: 'Compartir',
+            ),
+            IconButton(
+              icon: const Icon(Icons.open_in_new, color: Colors.blue),
               onPressed: () => controller.abrirArchivo(archivo),
               tooltip: 'Abrir',
             ),
