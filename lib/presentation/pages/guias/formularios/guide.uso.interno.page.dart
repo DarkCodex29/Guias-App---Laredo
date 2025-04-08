@@ -183,8 +183,6 @@ class UsoInternoPage extends StatelessWidget {
                         controller: controller.codigoChoferCamion,
                         type: TextFieldType.number,
                         errorText: controller.getError('codigoChoferCamion'),
-                        onChanged: (_) => {},
-                        maxLength: 5,
                         isLoading: controller.isLoadingChoferCamion,
                         actionIcon: Icons.search,
                         onActionPressed: () {
@@ -193,6 +191,7 @@ class UsoInternoPage extends StatelessWidget {
                               controller.codigoChoferCamion.text,
                               empleadoProvider,
                               'camion',
+                              transportistaProvider: transportistaProvider,
                             );
                           }
                         },
@@ -238,7 +237,9 @@ class UsoInternoPage extends StatelessWidget {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  'Empleado: ${controller.nombreChoferCamion}',
+                                  controller.esTrasladoPublico
+                                      ? 'Transportista: ${controller.nombreChoferCamion}'
+                                      : 'Empleado: ${controller.nombreChoferCamion}',
                                   style: const TextStyle(color: Colors.green),
                                 ),
                               ),
@@ -453,8 +454,6 @@ class UsoInternoPage extends StatelessWidget {
                         controller: controller.codigoCortero,
                         type: TextFieldType.number,
                         errorText: controller.getError('codigoCortero'),
-                        onChanged: (_) => {},
-                        maxLength: 5,
                         isLoading: controller.isLoadingCortero,
                         actionIcon: Icons.search,
                         onActionPressed: () {

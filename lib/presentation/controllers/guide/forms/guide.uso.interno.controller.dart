@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:app_guias/presentation/controllers/guide/guide.flow.controller.dart';
-import 'package:app_guias/services/log/logger.service.dart';
 import 'package:app_guias/providers/empleado.provider.dart';
 import 'package:app_guias/providers/equipo.provider.dart';
 import 'package:app_guias/providers/transportista.provider.dart';
@@ -241,7 +240,6 @@ class UsoInternoController extends ChangeNotifier {
 
   Future<void> init() async {
     if (_isInitialized) return;
-
     // Verificar si hay datos de equipo en el TransporteController
     if (_flowController != null &&
         _flowController!.transporteController.equipoData != null) {
@@ -250,9 +248,6 @@ class UsoInternoController extends ChangeNotifier {
       if (equipoData['codigo'] != null) {
         final codigo = equipoData['codigo'].toString();
         final soloNumeros = codigo.replaceAll(RegExp(r'[^\d]'), '');
-        LoggerService.info(
-            'UsoInternoController: Estableciendo código de camión: $soloNumeros');
-
         codigoCamion.text = soloNumeros;
         _touchedFields.add('codigoCamion');
       }
@@ -281,6 +276,19 @@ class UsoInternoController extends ChangeNotifier {
     clear();
   }
 
+  // Verificar si la modalidad de traslado es público
+  bool get esTrasladoPublico {
+    if (_flowController == null) {
+      return false;
+    }
+
+    // Usar el método existente en MotivoTrasladoController
+    final result =
+        _flowController!.motivoTrasladoController.esTransportePublico();
+    return result;
+  }
+
+  // Método para verificar chofer según tipo de traslado
   Future<void> verificarChofer(
       String codigo, EmpleadoProvider empleadoProvider, String tipo,
       {TransportistaProvider? transportistaProvider}) async {
@@ -304,18 +312,27 @@ class UsoInternoController extends ChangeNotifier {
     });
 
     try {
-      // Si es cortero y tenemos el provider de transportista, usamos ese
+      // Si es cortero, siempre usar el servicio de transportista
       if (tipo == 'cortero' && transportistaProvider != null) {
         await buscarTransportistaCortero(codigo, transportistaProvider);
         return;
       }
 
-      // Para camión y alzadora, seguimos usando el empleadoProvider
+      // Para chofer de camión, decidir según la modalidad de traslado
+      if (tipo == 'camion') {
+        // Si es público y tenemos el provider de transportista, usamos ese
+        if (esTrasladoPublico && transportistaProvider != null) {
+          await buscarTransportistaChofer(codigo, transportistaProvider);
+          return;
+        }
+      }
+
+      // Para los demás casos, seguimos usando el empleadoProvider
       final response = await empleadoProvider.verificarEmpleado(codigo);
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (response != null && response['success'] == true) {
-          // Obtener el primer apellido del empleado
+          // Obtener el nombre del empleado
           final nombreCompleto = response['empleado']?.toString() ?? '';
           final apellidos = nombreCompleto.split(' ');
           final primerApellido = apellidos.isNotEmpty ? apellidos[0] : '';
@@ -325,7 +342,6 @@ class UsoInternoController extends ChangeNotifier {
           } else if (tipo == 'alzadora') {
             nombreChoferAlzadora = primerApellido;
           }
-          // El caso de cortero lo maneja buscarTransportistaCortero
         } else {
           if (tipo == 'camion') {
             errorMessageChoferCamion = 'El código de chofer no existe';
@@ -353,9 +369,36 @@ class UsoInternoController extends ChangeNotifier {
         } else if (tipo == 'alzadora') {
           isLoadingChoferAlzadora = false;
         }
-        // El caso de cortero lo maneja buscarTransportistaCortero
         notifyListeners();
       });
+    }
+  }
+
+  // Método para buscar transportista para chofer (cuando es público)
+  Future<void> buscarTransportistaChofer(
+      String codigo, TransportistaProvider transportistaProvider) async {
+    isLoadingChoferCamion = true;
+    errorMessageChoferCamion = null;
+    nombreChoferCamion = null;
+    notifyListeners();
+
+    try {
+      final transportista =
+          await transportistaProvider.getTransportistaByCodigo(codigo);
+
+      if (transportista != null) {
+        // En lugar del nombre del chofer, guardamos el nombre del transportista
+        nombreChoferCamion = transportista.transportista;
+      } else {
+        errorMessageChoferCamion = transportistaProvider.error ??
+            'No se encontró el transportista con el código: $codigo';
+      }
+    } catch (e) {
+      errorMessageChoferCamion =
+          'Error al buscar transportista: ${e.toString()}';
+    } finally {
+      isLoadingChoferCamion = false;
+      notifyListeners();
     }
   }
 
