@@ -6,6 +6,7 @@ import 'package:app_guias/core/constants/app.colors.dart';
 import 'package:app_guias/providers/auth.provider.dart';
 import 'package:app_guias/providers/guia.provider.dart';
 import 'package:app_guias/presentation/widgets/custom.card.dart';
+import 'package:app_guias/presentation/widgets/custom.pagination.controls.dart';
 
 class HistorialPage extends StatelessWidget {
   const HistorialPage({super.key});
@@ -104,25 +105,6 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
       {required bool isPdf}) {
     final guiaProvider = context.watch<GuiaProvider>();
 
-    return Column(
-      children: [
-        // Lista de archivos (ahora ocupa todo el espacio excepto la paginación)
-        Expanded(
-          child: _buildFileList(archivos, controller, context, isPdf: isPdf),
-        ),
-
-        // Controles de paginación específicos para cada tab
-        if (guiaProvider.totalPages > 1)
-          _buildTabPaginationControls(context, controller, guiaProvider, isPdf),
-      ],
-    );
-  }
-
-  // Controles de paginación para cada tab
-  Widget _buildTabPaginationControls(BuildContext context,
-      HistorialController controller, GuiaProvider guiaProvider, bool isPdf) {
-    if (!mounted) return Container();
-
     // Usar los valores específicos para cada tipo
     final currentPage =
         isPdf ? guiaProvider.currentPagePDF : guiaProvider.currentPageCSV;
@@ -131,103 +113,34 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
     final isLoading =
         isPdf ? controller.isLoadingPagePDF : controller.isLoadingPageCSV;
 
-    return Container(
-      height: 56,
-      color: Colors.grey[200],
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // Botón para ir a la primera página
-          IconButton(
-            icon: const Icon(Icons.first_page),
-            onPressed: isLoading || currentPage <= 1
-                ? null
-                : () => isPdf
-                    ? controller.goToPagePDF(1)
-                    : controller.goToPageCSV(1),
-            color:
-                isLoading || currentPage <= 1 ? Colors.grey : AppColors.primary,
-            tooltip: 'Primera página',
-          ),
-          // Botón para ir a la página anterior
-          IconButton(
-            icon: const Icon(Icons.arrow_back_ios),
-            onPressed: isLoading || currentPage <= 1
-                ? null
-                : () => isPdf
-                    ? controller.previousPagePDF()
-                    : controller.previousPageCSV(),
-            color:
-                isLoading || currentPage <= 1 ? Colors.grey : AppColors.primary,
-            tooltip: 'Página anterior',
-          ),
-          const SizedBox(width: 8),
-          // Información de paginación
-          Expanded(
-            child: Center(
-              child: isLoading
-                  ? Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                                AppColors.primary),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Cargando...',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    )
-                  : Text(
-                      'Página $currentPage de $totalPages',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
+    return Stack(
+      children: [
+        // Lista de archivos (ahora ocupa todo el espacio)
+        _buildFileList(archivos, controller, context, isPdf: isPdf),
+
+        // Controles de paginación siempre visibles si hay más de una página
+        if (totalPages > 1)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: CustomPaginationControls(
+              currentPage: currentPage,
+              totalPages: totalPages,
+              isLoading: isLoading,
+              onFirstPage: () =>
+                  isPdf ? controller.goToPagePDF(1) : controller.goToPageCSV(1),
+              onPreviousPage: () => isPdf
+                  ? controller.previousPagePDF()
+                  : controller.previousPageCSV(),
+              onNextPage: () =>
+                  isPdf ? controller.nextPagePDF() : controller.nextPageCSV(),
+              onLastPage: () => isPdf
+                  ? controller.goToPagePDF(totalPages)
+                  : controller.goToPageCSV(totalPages),
             ),
           ),
-          const SizedBox(width: 8),
-          // Botón para ir a la página siguiente
-          IconButton(
-            icon: const Icon(Icons.arrow_forward_ios),
-            onPressed: isLoading || currentPage >= totalPages
-                ? null
-                : () =>
-                    isPdf ? controller.nextPagePDF() : controller.nextPageCSV(),
-            color: isLoading || currentPage >= totalPages
-                ? Colors.grey
-                : AppColors.primary,
-            tooltip: 'Página siguiente',
-          ),
-          // Botón para ir a la última página
-          IconButton(
-            icon: const Icon(Icons.last_page),
-            onPressed: isLoading || currentPage >= totalPages
-                ? null
-                : () => isPdf
-                    ? controller.goToPagePDF(totalPages)
-                    : controller.goToPageCSV(totalPages),
-            color: isLoading || currentPage >= totalPages
-                ? Colors.grey
-                : AppColors.primary,
-            tooltip: 'Última página',
-          ),
-        ],
-      ),
+      ],
     );
   }
 
@@ -246,16 +159,27 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
     final isLoading =
         isPdf ? controller.isLoadingPagePDF : controller.isLoadingPageCSV;
 
-    if (isPdf && isLoading) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('Cargando página...'),
-          ],
-        ),
+    // Solo para PDF y cuando está cargando, mostrar un indicador pero mantener la estructura
+    if (isLoading) {
+      return ListView(
+        padding:
+            const EdgeInsets.only(bottom: 56), // Espacio para la paginación
+        children: [
+          SizedBox(
+            height: MediaQuery.of(context).size.height *
+                0.7, // Altura aproximada para la lista
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Cargando ${isPdf ? "guías PDF" : "archivos CSV"}...'),
+                ],
+              ),
+            ),
+          ),
+        ],
       );
     }
 
@@ -284,39 +208,6 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
                   'Página $currentPage de $totalPages',
                   style: const TextStyle(fontSize: 14, color: Colors.grey),
                 ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.arrow_back, size: 16),
-                      label: const Text('Anterior'),
-                      onPressed: currentPage > 1
-                          ? () => isPdf
-                              ? controller.previousPagePDF()
-                              : controller.previousPageCSV()
-                          : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: AppColors.white,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.arrow_forward, size: 16),
-                      label: const Text('Siguiente'),
-                      onPressed: currentPage < totalPages
-                          ? () => isPdf
-                              ? controller.nextPagePDF()
-                              : controller.nextPageCSV()
-                          : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: AppColors.white,
-                      ),
-                    ),
-                  ],
-                ),
               ],
             ],
           ),
@@ -329,7 +220,9 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
     return RefreshIndicator(
       onRefresh: () async {
         if (!mounted) return;
-        return controller.cargarArchivos(isAdmin: isAdmin);
+        return isPdf
+            ? controller.cargarArchivosPDF(isAdmin: isAdmin)
+            : controller.cargarArchivosCSV(isAdmin: isAdmin);
       },
       child: controller.hasError
           ? Center(
@@ -351,7 +244,9 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
                       icon: const Icon(Icons.refresh, color: AppColors.white),
                       label: const Text('Reintentar',
                           style: TextStyle(color: AppColors.white)),
-                      onPressed: () => controller.cargarArchivos(),
+                      onPressed: () => isPdf
+                          ? controller.cargarArchivosPDF(isAdmin: isAdmin)
+                          : controller.cargarArchivosCSV(isAdmin: isAdmin),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                       ),
@@ -362,7 +257,12 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
             )
           : ListView.builder(
               itemCount: archivos.length,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 8,
+                bottom: 72, // Espacio para la paginación
+              ),
               itemBuilder: (context, index) {
                 final archivo = archivos[index];
 

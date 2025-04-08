@@ -220,9 +220,11 @@ class HistorialController extends ChangeNotifier {
           if (archivo.isCsv) {
             tempCsv.add(archivo);
           }
-        } catch (e) {}
+        } catch (e) {
+          // Ignoramos errores de archivos individuales para que el proceso continúe
+          // con los demás archivos que sí se pueden procesar
+        }
       }
-
       // Ordenar por fecha de creación (más reciente primero)
       tempCsv.sort((a, b) => b.creationDate.compareTo(a.creationDate));
       _archivosCsv = tempCsv;
@@ -339,16 +341,25 @@ class HistorialController extends ChangeNotifier {
     if (!_mounted) return;
 
     if (_guiaProvider.currentPagePDF < _guiaProvider.totalPagesPDF) {
+      // Activamos indicador de carga antes de cualquier operación
       _isLoadingPagePDF = true;
       notifyListeners();
 
-      _archivosPdf.clear();
+      try {
+        // Cambiamos de página en el provider
+        await _guiaProvider.nextPagePDF();
 
-      await _guiaProvider.nextPagePDF();
-      await cargarArchivos(isAdmin: isAdmin);
-
-      _isLoadingPagePDF = false;
-      notifyListeners();
+        // Cargamos los nuevos archivos sin vaciar la lista actual
+        await _cargarArchivosPDFSinLimpiar(isAdmin: isAdmin);
+      } catch (e) {
+        _errorMessage = 'Error al cargar la siguiente página: ${e.toString()}';
+      } finally {
+        if (_mounted) {
+          // Desactivar indicador de carga siempre, incluso si hay error
+          _isLoadingPagePDF = false;
+          notifyListeners();
+        }
+      }
     }
   }
 
@@ -356,16 +367,25 @@ class HistorialController extends ChangeNotifier {
     if (!_mounted) return;
 
     if (_guiaProvider.currentPagePDF > 1) {
+      // Activamos indicador de carga antes de cualquier operación
       _isLoadingPagePDF = true;
       notifyListeners();
 
-      _archivosPdf.clear();
+      try {
+        // Cambiamos de página en el provider
+        await _guiaProvider.previousPagePDF();
 
-      await _guiaProvider.previousPagePDF();
-      await cargarArchivos(isAdmin: isAdmin);
-
-      _isLoadingPagePDF = false;
-      notifyListeners();
+        // Cargamos los nuevos archivos sin vaciar la lista actual
+        await _cargarArchivosPDFSinLimpiar(isAdmin: isAdmin);
+      } catch (e) {
+        _errorMessage = 'Error al cargar la página anterior: ${e.toString()}';
+      } finally {
+        if (_mounted) {
+          // Desactivar indicador de carga siempre, incluso si hay error
+          _isLoadingPagePDF = false;
+          notifyListeners();
+        }
+      }
     }
   }
 
@@ -375,15 +395,60 @@ class HistorialController extends ChangeNotifier {
     if (page >= 1 &&
         page <= _guiaProvider.totalPagesPDF &&
         page != _guiaProvider.currentPagePDF) {
+      // Activamos indicador de carga antes de cualquier operación
       _isLoadingPagePDF = true;
       notifyListeners();
 
+      try {
+        // Cambiamos de página en el provider
+        await _guiaProvider.goToPagePDF(page);
+
+        // Cargamos los nuevos archivos sin vaciar la lista actual
+        await _cargarArchivosPDFSinLimpiar(isAdmin: isAdmin);
+      } catch (e) {
+        _errorMessage = 'Error al cargar la página $page: ${e.toString()}';
+      } finally {
+        if (_mounted) {
+          // Desactivar indicador de carga siempre, incluso si hay error
+          _isLoadingPagePDF = false;
+          notifyListeners();
+        }
+      }
+    }
+  }
+
+  // Método para cargar archivos PDF sin limpiar la lista actual
+  Future<void> _cargarArchivosPDFSinLimpiar({bool isAdmin = false}) async {
+    if (!_mounted) return;
+
+    try {
+      // Cargar guías del backend según el rol de usuario
+      if (isAdmin) {
+        // Administrador: cargar todas las guías
+        await _guiaProvider.loadGuias(page: _guiaProvider.currentPagePDF);
+      } else {
+        // Usuario normal: cargar solo sus guías
+        final userId = _authProvider.userId;
+        if (userId != null) {
+          await _guiaProvider.loadGuiasByUsuario(userId,
+              page: _guiaProvider.currentPagePDF);
+        }
+      }
+
+      if (!_mounted) return;
+
+      // Actualizar la lista de archivos PDF
       _archivosPdf.clear();
+      _archivosPdf.addAll(
+          _guiaProvider.guias.map((guia) => GuideFile.fromGuia(guia)).toList());
 
-      await _guiaProvider.goToPagePDF(page);
-      await cargarArchivos(isAdmin: isAdmin);
+      // Ordenar por fecha de creación (más reciente primero)
+      _archivosPdf.sort((a, b) => b.creationDate.compareTo(a.creationDate));
 
-      _isLoadingPagePDF = false;
+      notifyListeners();
+    } catch (e) {
+      if (!_mounted) return;
+      _errorMessage = 'Error al cargar las guías: ${e.toString()}';
       notifyListeners();
     }
   }
@@ -396,13 +461,18 @@ class HistorialController extends ChangeNotifier {
       _isLoadingPageCSV = true;
       notifyListeners();
 
-      _archivosCsv = [];
-
-      await _guiaProvider.nextPageCSV();
-      await _cargarArchivosCsvLocales();
-
-      _isLoadingPageCSV = false;
-      notifyListeners();
+      try {
+        await _guiaProvider.nextPageCSV();
+        await _cargarArchivosCSVSinLimpiar();
+      } catch (e) {
+        _errorMessage =
+            'Error al cargar la siguiente página CSV: ${e.toString()}';
+      } finally {
+        if (_mounted) {
+          _isLoadingPageCSV = false;
+          notifyListeners();
+        }
+      }
     }
   }
 
@@ -413,13 +483,18 @@ class HistorialController extends ChangeNotifier {
       _isLoadingPageCSV = true;
       notifyListeners();
 
-      _archivosCsv = [];
-
-      await _guiaProvider.previousPageCSV();
-      await _cargarArchivosCsvLocales();
-
-      _isLoadingPageCSV = false;
-      notifyListeners();
+      try {
+        await _guiaProvider.previousPageCSV();
+        await _cargarArchivosCSVSinLimpiar();
+      } catch (e) {
+        _errorMessage =
+            'Error al cargar la página anterior CSV: ${e.toString()}';
+      } finally {
+        if (_mounted) {
+          _isLoadingPageCSV = false;
+          notifyListeners();
+        }
+      }
     }
   }
 
@@ -432,12 +507,87 @@ class HistorialController extends ChangeNotifier {
       _isLoadingPageCSV = true;
       notifyListeners();
 
-      _archivosCsv = [];
+      try {
+        await _guiaProvider.goToPageCSV(page);
+        await _cargarArchivosCSVSinLimpiar();
+      } catch (e) {
+        _errorMessage = 'Error al cargar la página $page CSV: ${e.toString()}';
+      } finally {
+        if (_mounted) {
+          _isLoadingPageCSV = false;
+          notifyListeners();
+        }
+      }
+    }
+  }
 
-      await _guiaProvider.goToPageCSV(page);
-      await _cargarArchivosCsvLocales();
+  // Método para cargar archivos CSV sin limpiar la lista actual
+  Future<void> _cargarArchivosCSVSinLimpiar() async {
+    if (!_mounted) return;
 
-      _isLoadingPageCSV = false;
+    try {
+      // Cargar archivos CSV locales
+      final directory = Directory('/storage/emulated/0/Download/Guias');
+      if (!await directory.exists()) {
+        await directory.create(recursive: true);
+        _archivosCsv = [];
+        _guiaProvider.setTotalPagesCSV(0);
+        notifyListeners();
+        return;
+      }
+
+      final files = directory.listSync();
+      final csvFiles = files
+          .where((file) =>
+              file is File &&
+              file.path.toLowerCase().endsWith('.csv') &&
+              file.statSync().type == FileSystemEntityType.file)
+          .map((file) => GuideFile.fromFile(file))
+          .toList();
+
+      // Ordenar por fecha de creación (más reciente primero)
+      csvFiles.sort((a, b) => b.creationDate.compareTo(a.creationDate));
+
+      // Calcular el total de páginas
+      final totalItems = csvFiles.length;
+      final pageSize = 10; // Tamaño de página fijo para CSV
+      final totalPages = (totalItems / pageSize).ceil();
+
+      // Actualizar el total de páginas en el provider
+      _guiaProvider.setTotalPagesCSV(totalPages);
+
+      // Si no hay archivos, asegurarse de que la página actual sea 1
+      if (totalItems == 0) {
+        _archivosCsv = [];
+        notifyListeners();
+        return;
+      }
+
+      // Calcular el índice de inicio y fin para la página actual
+      final startIndex = (_guiaProvider.currentPageCSV - 1) * pageSize;
+      final endIndex = startIndex + pageSize;
+
+      // Actualizar la lista de archivos CSV
+      if (startIndex < csvFiles.length) {
+        _archivosCsv = csvFiles.sublist(startIndex,
+            endIndex > csvFiles.length ? csvFiles.length : endIndex);
+      } else {
+        // Si el índice de inicio está fuera de rango, ir a la última página
+        final lastPage = totalPages;
+        await _guiaProvider.goToPageCSV(lastPage);
+        final lastPageStartIndex = (lastPage - 1) * pageSize;
+        final lastPageEndIndex = lastPageStartIndex + pageSize;
+        _archivosCsv = csvFiles.sublist(
+            lastPageStartIndex,
+            lastPageEndIndex > csvFiles.length
+                ? csvFiles.length
+                : lastPageEndIndex);
+      }
+
+      notifyListeners();
+    } catch (e) {
+      if (!_mounted) return;
+      _errorMessage = 'Error al cargar los archivos CSV: ${e.toString()}';
       notifyListeners();
     }
   }
@@ -448,6 +598,80 @@ class HistorialController extends ChangeNotifier {
   }
 
   Future<void> cargarArchivosCSV({bool isAdmin = false}) async {
-    return _cargarArchivosCsvLocales();
+    if (!_mounted) return;
+
+    _isLoadingPageCSV = true;
+    notifyListeners();
+
+    try {
+      // Cargar archivos CSV locales
+      final directory = Directory('/storage/emulated/0/Download/Guias');
+      if (!await directory.exists()) {
+        await directory.create(recursive: true);
+        _archivosCsv = [];
+        _guiaProvider.setTotalPagesCSV(0);
+        notifyListeners();
+        return;
+      }
+
+      final files = directory.listSync();
+      final csvFiles = files
+          .where((file) =>
+              file is File &&
+              file.path.toLowerCase().endsWith('.csv') &&
+              file.statSync().type == FileSystemEntityType.file)
+          .map((file) => GuideFile.fromFile(file))
+          .toList();
+
+      // Ordenar por fecha de creación (más reciente primero)
+      csvFiles.sort((a, b) => b.creationDate.compareTo(a.creationDate));
+
+      // Calcular el total de páginas
+      final totalItems = csvFiles.length;
+      final pageSize = 10; // Tamaño de página fijo para CSV
+      final totalPages = (totalItems / pageSize).ceil();
+
+      // Actualizar el total de páginas en el provider
+      _guiaProvider.setTotalPagesCSV(totalPages);
+
+      // Si no hay archivos, asegurarse de que la página actual sea 1
+      if (totalItems == 0) {
+        _archivosCsv = [];
+        notifyListeners();
+        return;
+      }
+
+      // Calcular el índice de inicio y fin para la página actual
+      final startIndex = (_guiaProvider.currentPageCSV - 1) * pageSize;
+      final endIndex = startIndex + pageSize;
+
+      // Actualizar la lista de archivos CSV
+      if (startIndex < csvFiles.length) {
+        _archivosCsv = csvFiles.sublist(startIndex,
+            endIndex > csvFiles.length ? csvFiles.length : endIndex);
+      } else {
+        // Si el índice de inicio está fuera de rango, ir a la última página
+        final lastPage = totalPages;
+        await _guiaProvider.goToPageCSV(lastPage);
+        final lastPageStartIndex = (lastPage - 1) * pageSize;
+        final lastPageEndIndex = lastPageStartIndex + pageSize;
+        _archivosCsv = csvFiles.sublist(
+            lastPageStartIndex,
+            lastPageEndIndex > csvFiles.length
+                ? csvFiles.length
+                : lastPageEndIndex);
+      }
+
+      notifyListeners();
+    } catch (e) {
+      if (!_mounted) return;
+      _errorMessage = 'Error al cargar los archivos CSV: ${e.toString()}';
+      notifyListeners();
+    } finally {
+      if (_mounted) {
+        _isLoadingPageCSV = false;
+        notifyListeners();
+      }
+    }
   }
 }
