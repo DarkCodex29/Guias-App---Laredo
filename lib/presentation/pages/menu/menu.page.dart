@@ -198,7 +198,6 @@ class _MenuPageState extends State<MenuPage> {
                       title: 'Cerrar sesión',
                       message: '¿Estás seguro de que deseas cerrar sesión?',
                       primaryButtonText: 'Aceptar',
-                      secondaryButtonText: 'Cancelar',
                     );
 
                     if (shouldLogout == true) {
