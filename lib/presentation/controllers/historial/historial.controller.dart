@@ -145,6 +145,11 @@ class HistorialController extends ChangeNotifier {
     // Determinar si el usuario es administrador
     final isAdmin = _authProvider.role == 'ADMINISTRADOR';
 
+    // Establecer estados de carga para mostrar Shimmer
+    _isLoadingPagePDF = true;
+    _isLoadingPageCSV = true;
+    notifyListeners();
+
     // Cargar las guías apropiadas según el rol
     cargarArchivos(isAdmin: isAdmin);
   }
@@ -196,6 +201,8 @@ class HistorialController extends ChangeNotifier {
       if (_mounted) {
         // Solo notificar si seguimos montados
         _isLoading = false;
+        _isLoadingPagePDF = false;
+        _isLoadingPageCSV = false;
         notifyListeners();
       }
     }
@@ -228,6 +235,34 @@ class HistorialController extends ChangeNotifier {
       // Ordenar por fecha de creación (más reciente primero)
       tempCsv.sort((a, b) => b.creationDate.compareTo(a.creationDate));
       _archivosCsv = tempCsv;
+
+      // Actualizar el total de páginas para CSV
+      final totalItems = _archivosCsv.length;
+      final pageSize = 10; // Tamaño de página fijo para CSV
+      final totalPages = (totalItems / pageSize).ceil();
+      _guiaProvider.setTotalPagesCSV(totalPages);
+
+      // Si hay archivos, calcular la página actual
+      if (totalItems > 0) {
+        final startIndex = (_guiaProvider.currentPageCSV - 1) * pageSize;
+        final endIndex = startIndex + pageSize;
+
+        if (startIndex < _archivosCsv.length) {
+          _archivosCsv = _archivosCsv.sublist(startIndex,
+              endIndex > _archivosCsv.length ? _archivosCsv.length : endIndex);
+        } else {
+          // Si el índice de inicio está fuera de rango, ir a la última página
+          final lastPage = totalPages;
+          await _guiaProvider.goToPageCSV(lastPage);
+          final lastPageStartIndex = (lastPage - 1) * pageSize;
+          final lastPageEndIndex = lastPageStartIndex + pageSize;
+          _archivosCsv = _archivosCsv.sublist(
+              lastPageStartIndex,
+              lastPageEndIndex > _archivosCsv.length
+                  ? _archivosCsv.length
+                  : lastPageEndIndex);
+        }
+      }
     } catch (e) {
       _archivosCsv = [];
     }
@@ -304,58 +339,22 @@ class HistorialController extends ChangeNotifier {
     }
   }
 
-  Future<bool> eliminarArchivo(GuideFile archivo) async {
-    try {
-      // Si es un archivo local
-      if (archivo.fullPath.isNotEmpty) {
-        final file = File(archivo.fullPath);
-        await file.delete();
-
-        // Actualizar listas locales
-        if (archivo.isPdf) {
-          _archivosPdf.removeWhere((a) => a.fullPath == archivo.fullPath);
-        } else if (archivo.isCsv) {
-          _archivosCsv.removeWhere((a) => a.fullPath == archivo.fullPath);
-        }
-
-        notifyListeners();
-        return true;
-      }
-      // Si es un archivo del backend
-      else {
-        // Implementar aquí la eliminación del backend cuando esté disponible
-        // Por ahora solo actualizamos la lista local
-        _archivosPdf.removeWhere((a) => a.fileName == archivo.fileName);
-        notifyListeners();
-        return true;
-      }
-    } catch (e) {
-      _errorMessage = 'No se pudo eliminar el archivo: $e';
-      notifyListeners();
-      return false;
-    }
-  }
-
   // Métodos para paginación PDF
   Future<void> nextPagePDF() async {
     if (!_mounted) return;
 
     if (_guiaProvider.currentPagePDF < _guiaProvider.totalPagesPDF) {
-      // Activamos indicador de carga antes de cualquier operación
       _isLoadingPagePDF = true;
       notifyListeners();
 
       try {
-        // Cambiamos de página en el provider
         await _guiaProvider.nextPagePDF();
-
-        // Cargamos los nuevos archivos sin vaciar la lista actual
-        await _cargarArchivosPDFSinLimpiar(isAdmin: isAdmin);
+        await _cargarArchivosPDFSinLimpiar();
       } catch (e) {
-        _errorMessage = 'Error al cargar la siguiente página: ${e.toString()}';
+        _errorMessage =
+            'Error al cargar la siguiente página PDF: ${e.toString()}';
       } finally {
         if (_mounted) {
-          // Desactivar indicador de carga siempre, incluso si hay error
           _isLoadingPagePDF = false;
           notifyListeners();
         }
@@ -367,21 +366,17 @@ class HistorialController extends ChangeNotifier {
     if (!_mounted) return;
 
     if (_guiaProvider.currentPagePDF > 1) {
-      // Activamos indicador de carga antes de cualquier operación
       _isLoadingPagePDF = true;
       notifyListeners();
 
       try {
-        // Cambiamos de página en el provider
         await _guiaProvider.previousPagePDF();
-
-        // Cargamos los nuevos archivos sin vaciar la lista actual
-        await _cargarArchivosPDFSinLimpiar(isAdmin: isAdmin);
+        await _cargarArchivosPDFSinLimpiar();
       } catch (e) {
-        _errorMessage = 'Error al cargar la página anterior: ${e.toString()}';
+        _errorMessage =
+            'Error al cargar la página anterior PDF: ${e.toString()}';
       } finally {
         if (_mounted) {
-          // Desactivar indicador de carga siempre, incluso si hay error
           _isLoadingPagePDF = false;
           notifyListeners();
         }
@@ -395,21 +390,16 @@ class HistorialController extends ChangeNotifier {
     if (page >= 1 &&
         page <= _guiaProvider.totalPagesPDF &&
         page != _guiaProvider.currentPagePDF) {
-      // Activamos indicador de carga antes de cualquier operación
       _isLoadingPagePDF = true;
       notifyListeners();
 
       try {
-        // Cambiamos de página en el provider
         await _guiaProvider.goToPagePDF(page);
-
-        // Cargamos los nuevos archivos sin vaciar la lista actual
-        await _cargarArchivosPDFSinLimpiar(isAdmin: isAdmin);
+        await _cargarArchivosPDFSinLimpiar();
       } catch (e) {
-        _errorMessage = 'Error al cargar la página $page: ${e.toString()}';
+        _errorMessage = 'Error al cargar la página $page PDF: ${e.toString()}';
       } finally {
         if (_mounted) {
-          // Desactivar indicador de carga siempre, incluso si hay error
           _isLoadingPagePDF = false;
           notifyListeners();
         }
@@ -418,11 +408,17 @@ class HistorialController extends ChangeNotifier {
   }
 
   // Método para cargar archivos PDF sin limpiar la lista actual
-  Future<void> _cargarArchivosPDFSinLimpiar({bool isAdmin = false}) async {
+  Future<void> _cargarArchivosPDFSinLimpiar() async {
     if (!_mounted) return;
 
+    _isLoadingPagePDF = true;
+    notifyListeners();
+
     try {
-      // Cargar guías del backend según el rol de usuario
+      final authProvider = _authProvider;
+      final isAdmin = authProvider.role == 'ADMINISTRADOR';
+
+      // Cargar archivos PDF desde el backend
       if (isAdmin) {
         // Administrador: cargar todas las guías
         await _guiaProvider.loadGuias(page: _guiaProvider.currentPagePDF);
@@ -445,10 +441,12 @@ class HistorialController extends ChangeNotifier {
       // Ordenar por fecha de creación (más reciente primero)
       _archivosPdf.sort((a, b) => b.creationDate.compareTo(a.creationDate));
 
+      _isLoadingPagePDF = false;
       notifyListeners();
     } catch (e) {
       if (!_mounted) return;
-      _errorMessage = 'Error al cargar las guías: ${e.toString()}';
+      _errorMessage = 'Error al cargar los archivos PDF: ${e.toString()}';
+      _isLoadingPagePDF = false;
       notifyListeners();
     }
   }
@@ -525,6 +523,9 @@ class HistorialController extends ChangeNotifier {
   Future<void> _cargarArchivosCSVSinLimpiar() async {
     if (!_mounted) return;
 
+    _isLoadingPageCSV = true;
+    notifyListeners();
+
     try {
       // Cargar archivos CSV locales
       final directory = Directory('/storage/emulated/0/Download/Guias');
@@ -532,11 +533,13 @@ class HistorialController extends ChangeNotifier {
         await directory.create(recursive: true);
         _archivosCsv = [];
         _guiaProvider.setTotalPagesCSV(0);
+        _isLoadingPageCSV = false;
         notifyListeners();
         return;
       }
 
-      final files = directory.listSync();
+      // Obtener lista de archivos de manera asíncrona
+      final files = await directory.list().toList();
       final csvFiles = files
           .where((file) =>
               file is File &&
@@ -559,6 +562,7 @@ class HistorialController extends ChangeNotifier {
       // Si no hay archivos, asegurarse de que la página actual sea 1
       if (totalItems == 0) {
         _archivosCsv = [];
+        _isLoadingPageCSV = false;
         notifyListeners();
         return;
       }
@@ -584,10 +588,12 @@ class HistorialController extends ChangeNotifier {
                 : lastPageEndIndex);
       }
 
+      _isLoadingPageCSV = false;
       notifyListeners();
     } catch (e) {
       if (!_mounted) return;
       _errorMessage = 'Error al cargar los archivos CSV: ${e.toString()}';
+      _isLoadingPageCSV = false;
       notifyListeners();
     }
   }
@@ -601,6 +607,7 @@ class HistorialController extends ChangeNotifier {
     if (!_mounted) return;
 
     _isLoadingPageCSV = true;
+    _errorMessage = '';
     notifyListeners();
 
     try {
@@ -610,11 +617,13 @@ class HistorialController extends ChangeNotifier {
         await directory.create(recursive: true);
         _archivosCsv = [];
         _guiaProvider.setTotalPagesCSV(0);
+        _isLoadingPageCSV = false;
         notifyListeners();
         return;
       }
 
-      final files = directory.listSync();
+      // Obtener lista de archivos de manera asíncrona
+      final files = await directory.list().toList();
       final csvFiles = files
           .where((file) =>
               file is File &&
@@ -637,6 +646,7 @@ class HistorialController extends ChangeNotifier {
       // Si no hay archivos, asegurarse de que la página actual sea 1
       if (totalItems == 0) {
         _archivosCsv = [];
+        _isLoadingPageCSV = false;
         notifyListeners();
         return;
       }
@@ -662,16 +672,13 @@ class HistorialController extends ChangeNotifier {
                 : lastPageEndIndex);
       }
 
+      _isLoadingPageCSV = false;
       notifyListeners();
     } catch (e) {
       if (!_mounted) return;
       _errorMessage = 'Error al cargar los archivos CSV: ${e.toString()}';
+      _isLoadingPageCSV = false;
       notifyListeners();
-    } finally {
-      if (_mounted) {
-        _isLoadingPageCSV = false;
-        notifyListeners();
-      }
     }
   }
 }

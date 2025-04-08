@@ -7,6 +7,7 @@ import 'package:app_guias/providers/auth.provider.dart';
 import 'package:app_guias/providers/guia.provider.dart';
 import 'package:app_guias/presentation/widgets/custom.card.dart';
 import 'package:app_guias/presentation/widgets/custom.pagination.controls.dart';
+import 'package:app_guias/presentation/widgets/custom.card.shimmer.dart';
 
 class HistorialPage extends StatelessWidget {
   const HistorialPage({super.key});
@@ -85,16 +86,14 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
             indicatorColor: AppColors.white,
           ),
         ),
-        body: controller.isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : TabBarView(
-                children: [
-                  _buildTabContent(controller.archivosPdf, controller, context,
-                      isPdf: true),
-                  _buildTabContent(controller.archivosCsv, controller, context,
-                      isPdf: false),
-                ],
-              ),
+        body: TabBarView(
+          children: [
+            _buildTabContent(controller.archivosPdf, controller, context,
+                isPdf: true),
+            _buildTabContent(controller.archivosCsv, controller, context,
+                isPdf: false),
+          ],
+        ),
       ),
     );
   }
@@ -159,31 +158,16 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
     final isLoading =
         isPdf ? controller.isLoadingPagePDF : controller.isLoadingPageCSV;
 
-    // Solo para PDF y cuando está cargando, mostrar un indicador pero mantener la estructura
+    // Usar Shimmer para el estado de carga
     if (isLoading) {
-      return ListView(
-        padding:
-            const EdgeInsets.only(bottom: 56), // Espacio para la paginación
-        children: [
-          SizedBox(
-            height: MediaQuery.of(context).size.height *
-                0.7, // Altura aproximada para la lista
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Cargando ${isPdf ? "guías PDF" : "archivos CSV"}...'),
-                ],
-              ),
-            ),
-          ),
-        ],
+      return CustomCardShimmer(
+        isPdf: isPdf,
+        count: 5, // Mostrar 5 tarjetas de carga
       );
     }
 
-    if (archivos.isEmpty) {
+    // Si hay error, mostrar mensaje de error
+    if (controller.hasError) {
       return RefreshIndicator(
         onRefresh: () async {
           if (!mounted) return;
@@ -191,41 +175,11 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
               ? controller.cargarArchivosPDF(isAdmin: isAdmin)
               : controller.cargarArchivosCSV(isAdmin: isAdmin);
         },
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(isPdf ? Icons.picture_as_pdf : Icons.description,
-                  size: 48, color: Colors.grey),
-              const SizedBox(height: 16),
-              Text(
-                'No hay archivos ${isPdf ? 'PDF' : 'CSV'} en esta página',
-                style: const TextStyle(fontSize: 16),
-              ),
-              if (totalPages > 1) ...[
-                const SizedBox(height: 8),
-                Text(
-                  'Página $currentPage de $totalPages',
-                  style: const TextStyle(fontSize: 14, color: Colors.grey),
-                ),
-              ],
-            ],
-          ),
-        ),
-      );
-    }
-
-    final dateFormat = DateFormat('dd/MM/yyyy HH:mm');
-
-    return RefreshIndicator(
-      onRefresh: () async {
-        if (!mounted) return;
-        return isPdf
-            ? controller.cargarArchivosPDF(isAdmin: isAdmin)
-            : controller.cargarArchivosCSV(isAdmin: isAdmin);
-      },
-      child: controller.hasError
-          ? Center(
+        child: ListView.builder(
+          padding: const EdgeInsets.only(bottom: 56),
+          itemCount: 1,
+          itemBuilder: (context, index) {
+            return Center(
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
@@ -254,135 +208,182 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
                   ],
                 ),
               ),
-            )
-          : ListView.builder(
-              itemCount: archivos.length,
-              padding: const EdgeInsets.only(
-                left: 16,
-                right: 16,
-                top: 8,
-                bottom: 72, // Espacio para la paginación
-              ),
-              itemBuilder: (context, index) {
-                final archivo = archivos[index];
+            );
+          },
+        ),
+      );
+    }
 
-                // Extraer correlativo del nombre
-                String? correlativo;
-
-                if (archivo.fileName.contains('-')) {
-                  final parts = archivo.fileName.split('-');
-                  if (parts.length >= 3) {
-                    correlativo =
-                        parts.length > 2 ? '${parts[2]}-${parts[3]}' : '';
-                  }
-                }
-
-                // Construir widgets del subtítulo
-                final List<Widget> subtitleWidgets = [
-                  // Fecha
-                  RichText(
-                    text: TextSpan(
-                      style:
-                          const TextStyle(fontSize: 12, color: Colors.black87),
-                      children: [
-                        const TextSpan(
-                          text: 'Fecha: ',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        TextSpan(
-                          text: dateFormat.format(archivo.creationDate),
-                        ),
-                      ],
-                    ),
+    // Si no hay archivos y no está cargando, mostrar mensaje de "No hay archivos"
+    if (archivos.isEmpty && !isLoading) {
+      return RefreshIndicator(
+        onRefresh: () async {
+          if (!mounted) return;
+          return isPdf
+              ? controller.cargarArchivosPDF(isAdmin: isAdmin)
+              : controller.cargarArchivosCSV(isAdmin: isAdmin);
+        },
+        child: ListView.builder(
+          padding: const EdgeInsets.only(bottom: 56),
+          itemCount: 1,
+          itemBuilder: (context, index) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(isPdf ? Icons.picture_as_pdf : Icons.description,
+                      size: 48, color: Colors.grey),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No hay archivos ${isPdf ? 'PDF' : 'CSV'} en esta página',
+                    style: const TextStyle(fontSize: 16),
                   ),
-                  const SizedBox(height: 4),
-
-                  // Nombre del archivo
-                  RichText(
-                    text: TextSpan(
-                      style:
-                          const TextStyle(fontSize: 12, color: Colors.black87),
-                      children: [
-                        const TextSpan(
-                          text: 'Nombre del archivo: ',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        TextSpan(
-                          text: archivo.fileName,
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Usuario (solo para PDF)
-                  if (isPdf && archivo.usernameUsuario != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: RichText(
-                        text: TextSpan(
-                          style: const TextStyle(
-                              fontSize: 12, color: Colors.black87),
-                          children: [
-                            const TextSpan(
-                              text: 'Usuario: ',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            TextSpan(
-                              text: archivo.usernameUsuario,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                ];
-
-                // Icono para abrir el archivo
-                final List<Widget> actions = [
-                  IconButton(
-                    icon: const Icon(Icons.open_in_new),
-                    onPressed: () => controller.abrirArchivo(archivo),
-                    tooltip: 'Abrir',
-                  ),
-                ];
-
-                // Título con el correlativo
-                final titleWidget = Row(
-                  children: [
-                    Icon(
-                      isPdf ? Icons.picture_as_pdf : Icons.description,
-                      color: isPdf ? Colors.red : Colors.blue,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        correlativo ??
-                            archivo.serieCorrelativo ??
-                            archivo.fileName,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                  if (totalPages > 1) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Página $currentPage de $totalPages',
+                      style: const TextStyle(fontSize: 14, color: Colors.grey),
                     ),
                   ],
-                );
+                ],
+              ),
+            );
+          },
+        ),
+      );
+    }
 
-                return CustomCard(
-                  title: '',
-                  titleWidget: titleWidget,
-                  subtitleWidgets: subtitleWidgets,
-                  trailing: actions,
-                  onTap: () => controller.abrirArchivo(archivo),
-                  elevation: 2,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
+    final dateFormat = DateFormat('dd/MM/yyyy HH:mm');
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        if (!mounted) return;
+        return isPdf
+            ? controller.cargarArchivosPDF(isAdmin: isAdmin)
+            : controller.cargarArchivosCSV(isAdmin: isAdmin);
+      },
+      child: ListView.builder(
+        itemCount: archivos.length,
+        padding: const EdgeInsets.only(
+          left: 16,
+          right: 16,
+          top: 8,
+          bottom: 72, // Espacio para la paginación
+        ),
+        itemBuilder: (context, index) {
+          final archivo = archivos[index];
+
+          // Extraer correlativo del nombre
+          String? correlativo;
+
+          if (archivo.fileName.contains('-')) {
+            final parts = archivo.fileName.split('-');
+            if (parts.length >= 3) {
+              correlativo = parts.length > 2 ? '${parts[2]}-${parts[3]}' : '';
+            }
+          }
+
+          // Construir widgets del subtítulo
+          final List<Widget> subtitleWidgets = [
+            // Fecha
+            RichText(
+              text: TextSpan(
+                style: const TextStyle(fontSize: 12, color: Colors.black87),
+                children: [
+                  const TextSpan(
+                    text: 'Fecha: ',
+                    style: TextStyle(fontWeight: FontWeight.bold),
                   ),
-                );
-              },
+                  TextSpan(
+                    text: dateFormat.format(archivo.creationDate),
+                  ),
+                ],
+              ),
             ),
+            const SizedBox(height: 4),
+
+            // Nombre del archivo
+            RichText(
+              text: TextSpan(
+                style: const TextStyle(fontSize: 12, color: Colors.black87),
+                children: [
+                  const TextSpan(
+                    text: 'Nombre del archivo: ',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  TextSpan(
+                    text: archivo.fileName,
+                  ),
+                ],
+              ),
+            ),
+
+            // Usuario (solo para PDF)
+            if (isPdf && archivo.usernameUsuario != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: RichText(
+                  text: TextSpan(
+                    style: const TextStyle(fontSize: 12, color: Colors.black87),
+                    children: [
+                      const TextSpan(
+                        text: 'Usuario: ',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      TextSpan(
+                        text: archivo.usernameUsuario,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ];
+
+          // Icono para abrir el archivo
+          final List<Widget> actions = [
+            IconButton(
+              icon: const Icon(Icons.open_in_new),
+              onPressed: () => controller.abrirArchivo(archivo),
+              tooltip: 'Abrir',
+            ),
+          ];
+
+          // Título con el correlativo
+          final titleWidget = Row(
+            children: [
+              Icon(
+                isPdf ? Icons.picture_as_pdf : Icons.description,
+                color: isPdf ? Colors.red : Colors.blue,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  correlativo ?? archivo.serieCorrelativo ?? archivo.fileName,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          );
+
+          return CustomCard(
+            title: '',
+            titleWidget: titleWidget,
+            subtitleWidgets: subtitleWidgets,
+            trailing: actions,
+            onTap: () => controller.abrirArchivo(archivo),
+            elevation: 2,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 12,
+            ),
+          );
+        },
+      ),
     );
   }
 }

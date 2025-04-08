@@ -44,6 +44,7 @@ dependencies:
   open_file: ^3.5.10
   http_parser: ^4.1.2
   path: ^1.9.1
+  shimmer: ^3.0.0
 
 dev_dependencies:
   build_runner: ^2.4.15
