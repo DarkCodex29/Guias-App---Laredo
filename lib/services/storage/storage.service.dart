@@ -1,4 +1,5 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../log/logger.service.dart';
 
 class StorageService {
   static const _storage = FlutterSecureStorage();
@@ -13,19 +14,30 @@ class StorageService {
     required String userId,
     required String username,
   }) async {
-    await Future.wait([
-      _storage.write(key: _tokenKey, value: token),
-      _storage.write(key: _roleKey, value: role),
-      _storage.write(key: _userIdKey, value: userId),
-      _storage.write(key: _usernameKey, value: username),
-    ]);
+    try {
+      await _storage.write(key: _tokenKey, value: token);
+      await _storage.write(key: _roleKey, value: role);
+      await _storage.write(key: _userIdKey, value: userId);
+      await _storage.write(key: _usernameKey, value: username);
+    } catch (e) {
+      LoggerService.error('Error saving auth data: $e');
+    }
   }
 
   static Future<Map<String, String?>> getAuthData() async {
-    final token = await _storage.read(key: _tokenKey);
-    final role = await _storage.read(key: _roleKey);
-    final userId = await _storage.read(key: _userIdKey);
-    final username = await _storage.read(key: _usernameKey);
+    String? token, role, userId, username;
+    try {
+      token = await _storage.read(key: _tokenKey);
+      role = await _storage.read(key: _roleKey);
+      userId = await _storage.read(key: _userIdKey);
+      username = await _storage.read(key: _usernameKey);
+    } catch (e) {
+      LoggerService.error('Error getting auth data: $e');
+      token = null;
+      role = null;
+      userId = null;
+      username = null;
+    }
 
     return {
       'token': token,
@@ -36,11 +48,13 @@ class StorageService {
   }
 
   static Future<void> clearAuthData() async {
-    await Future.wait([
-      _storage.delete(key: _tokenKey),
-      _storage.delete(key: _roleKey),
-      _storage.delete(key: _userIdKey),
-      _storage.delete(key: _usernameKey),
-    ]);
+    try {
+      await _storage.delete(key: _tokenKey);
+      await _storage.delete(key: _roleKey);
+      await _storage.delete(key: _userIdKey);
+      await _storage.delete(key: _usernameKey);
+    } catch (e) {
+      LoggerService.error('Error clearing auth data: $e');
+    }
   }
 }

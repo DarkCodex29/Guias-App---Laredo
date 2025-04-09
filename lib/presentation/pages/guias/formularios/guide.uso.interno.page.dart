@@ -8,6 +8,7 @@ import 'package:app_guias/presentation/widgets/custom.textfield.dart';
 import 'package:app_guias/providers/empleado.provider.dart';
 import 'package:app_guias/providers/equipo.provider.dart';
 import 'package:app_guias/providers/transportista.provider.dart';
+import 'package:app_guias/services/log/logger.service.dart';
 
 class UsoInternoPage extends StatelessWidget {
   const UsoInternoPage({super.key});
@@ -599,11 +600,11 @@ class UsoInternoPage extends StatelessWidget {
       if (nextStep != null) {
         // Ir al siguiente paso (aunque teóricamente no debería haber uno)
         flowController.goToStep(nextStep);
-        print(
-            "Advertencia: Se navegó al paso $nextStep después de Uso Interno, revisar lógica.");
+        LoggerService.warning(
+            "Se navegó al paso $nextStep después de Uso Interno, revisar lógica.");
       } else {
-        print(
-            "Error: No se encontró el siguiente paso, aunque isLastAvailableStep era falso.");
+        LoggerService.error(
+            "No se encontró el siguiente paso, aunque isLastAvailableStep era falso.");
       }
     }
   }
