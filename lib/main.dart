@@ -13,7 +13,10 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:io' show Platform;
 import 'presentation/widgets/auth.wrapper.dart';
+import 'firebase_options.dart';
 
 void main() async {
   try {
@@ -22,39 +25,47 @@ void main() async {
     // Configurar share_plus
     Share.downloadFallbackEnabled = true;
 
-    // Verificar versión de Android
-    final deviceInfo = DeviceInfoPlugin();
-    final androidInfo = await deviceInfo.androidInfo;
-    final sdkInt = androidInfo.version.sdkInt;
+    // Verificar plataforma y configurar permisos solo para Android
+    if (!kIsWeb && Platform.isAndroid) {
+      // Lógica específica para Android
+      final deviceInfo = DeviceInfoPlugin();
+      final androidInfo = await deviceInfo.androidInfo;
+      final sdkInt = androidInfo.version.sdkInt;
 
-    // Solicitar permisos según la versión de Android
-    if (sdkInt >= 33) {
-      // Android 13 y superior
-      final status = await Permission.manageExternalStorage.request();
-      if (!status.isGranted) {
-        LoggerService.warning(
-            'Permisos de almacenamiento no concedidos en Android 13+');
-      }
-    } else if (sdkInt >= 29) {
-      // Android 10-12
-      final readStatus = await Permission.storage.request();
-      final writeStatus = await Permission.storage.request();
-      if (!readStatus.isGranted || !writeStatus.isGranted) {
-        LoggerService.warning(
-            'Permisos de almacenamiento no concedidos en Android 10-12');
+      // Solicitar permisos según la versión de Android
+      if (sdkInt >= 33) {
+        // Android 13 y superior
+        final status = await Permission.manageExternalStorage.request();
+        if (!status.isGranted) {
+          LoggerService.warning(
+              'Permisos de almacenamiento no concedidos en Android 13+');
+        }
+      } else if (sdkInt >= 29) {
+        // Android 10-12
+        final readStatus = await Permission.storage.request();
+        final writeStatus = await Permission.storage.request();
+        if (!readStatus.isGranted || !writeStatus.isGranted) {
+          LoggerService.warning(
+              'Permisos de almacenamiento no concedidos en Android 10-12');
+        }
+      } else {
+        // Android 9 y anteriores
+        final readStatus = await Permission.storage.request();
+        final writeStatus = await Permission.storage.request();
+        if (!readStatus.isGranted || !writeStatus.isGranted) {
+          LoggerService.warning(
+              'Permisos de almacenamiento no concedidos en Android 9 o anterior');
+        }
       }
     } else {
-      // Android 9 y anteriores
-      final readStatus = await Permission.storage.request();
-      final writeStatus = await Permission.storage.request();
-      if (!readStatus.isGranted || !writeStatus.isGranted) {
-        LoggerService.warning(
-            'Permisos de almacenamiento no concedidos en Android 9 o anterior');
-      }
+      LoggerService.info(
+          'Ejecutando en plataforma: ${kIsWeb ? 'Web' : Platform.operatingSystem}');
     }
 
-    // Inicializar Firebase
-    await Firebase.initializeApp();
+    // Inicializar Firebase con opciones específicas para la plataforma
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
     LoggerService.info('Firebase inicializado correctamente');
 
     // Cargar variables de entorno
