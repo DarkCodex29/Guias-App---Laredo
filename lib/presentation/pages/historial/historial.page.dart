@@ -57,8 +57,11 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
     final size = MediaQuery.of(context).size;
     final isDesktop = size.width > 600;
 
+    // En desktop solo mostramos una pestaña (PDF), mientras que en móvil mostramos dos (PDF y CSV)
+    final tabCount = isDesktop ? 1 : 2;
+
     return DefaultTabController(
-      length: 2,
+      length: tabCount,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Historial de Guías',
@@ -75,14 +78,16 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
           ],
           bottom: TabBar(
             tabs: [
-              Tab(
+              const Tab(
                 icon: Icon(Icons.picture_as_pdf),
                 text: 'PDF',
               ),
-              Tab(
-                icon: Icon(Icons.description),
-                text: 'CSV',
-              ),
+              // Solo mostrar la pestaña CSV en móvil
+              if (!isDesktop)
+                const Tab(
+                  icon: Icon(Icons.description),
+                  text: 'CSV',
+                ),
             ],
             labelColor: AppColors.white,
             indicatorColor: AppColors.white,
@@ -115,10 +120,9 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
           flex: 3,
           child: TabBarView(
             children: [
+              // Solo mostrar la pestaña PDF en desktop
               _buildTabContent(controller.archivosPdf, controller, context,
                   isPdf: true),
-              _buildTabContent(controller.archivosCsv, controller, context,
-                  isPdf: false),
             ],
           ),
         ),
@@ -145,6 +149,15 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.black54,
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    'En versión de escritorio solo se muestran los archivos PDF. Para ver los archivos CSV, acceda desde un dispositivo móvil.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.black54,
+                      fontStyle: FontStyle.italic,
                     ),
                   ),
                 ],

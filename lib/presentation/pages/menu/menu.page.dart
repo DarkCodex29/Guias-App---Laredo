@@ -197,21 +197,6 @@ class _MenuPageState extends State<MenuPage> {
                 childAspectRatio: 1.3,
                 children: [
                   _buildDesktopCard(
-                    'Nueva guía de remisión',
-                    Icons.description,
-                    'Crea una nueva guía de remisión para el traslado de mercancías',
-                    () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => NewGuidePage(
-                            guideFlowController: _guideFlowController,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  _buildDesktopCard(
                     'Historial guías',
                     Icons.history,
                     'Consulta el historial de guías generadas',
