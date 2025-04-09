@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:app_guias/services/log/logger.service.dart';
-import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
 
 class CsvService {
   static const String tipoDocumento = '09'; // Guía de remisión remitente
@@ -302,19 +302,31 @@ class CsvService {
     final csvContent = rows.map((row) => row.join(',')).join('\n');
 
     // Crear nombre de archivo según formato SUNAT: <RucEmisor>-<CodigoTipoDocumento>-<SerieYcorrelativo>.csv
-    final nombreArchivo = '$rucRemitente-$tipoDocumento-$serieCorrelativo';
+    final nombreArchivo = '$rucEmisor-$tipoDocumento-$serieCorrelativo';
     final nombreArchivoConExtension = '$nombreArchivo.csv';
 
-    // Obtener el directorio de descargas
-    final directory = Directory('/storage/emulated/0/Download');
-
-    if (!await directory.exists()) {
-      throw Exception('NO SE PUDO ACCEDER AL DIRECTORIO DE DESCARGAS');
+    // Obtener el directorio de descargas apropiado para la plataforma
+    final Directory? downloadsDir = await getDownloadsDirectory();
+    if (downloadsDir == null) {
+      LoggerService.error('No se pudo obtener el directorio de descargas.');
+      throw Exception('No se pudo obtener el directorio de descargas');
     }
+    LoggerService.info(
+        'Directorio de descargas obtenido: ${downloadsDir.path}');
 
-    final guiasDirectory = Directory('${directory.path}/Guias');
+    final guiasDirectory = Directory('${downloadsDir.path}/Guias');
     if (!await guiasDirectory.exists()) {
-      await guiasDirectory.create(recursive: true);
+      try {
+        await guiasDirectory.create(recursive: true);
+        LoggerService.info(
+            'Directorio Guías creado en: ${guiasDirectory.path}');
+      } catch (e, s) {
+        LoggerService.error('Error al crear el directorio Guías: $e', s);
+        throw Exception('Error al crear el directorio Guías: $e');
+      }
+    } else {
+      LoggerService.info(
+          'Directorio Guías ya existe en: ${guiasDirectory.path}');
     }
 
     // Verificar si el archivo existe y eliminarlo antes de crear uno nuevo
@@ -324,15 +336,17 @@ class CsvService {
     try {
       if (await file.exists()) {
         await file.delete();
+        LoggerService.warning('Archivo CSV existente eliminado: $filePath');
         // Esperar un momento para asegurar que el sistema de archivos se actualice
         await Future.delayed(const Duration(milliseconds: 100));
       }
 
       await file.writeAsString(csvContent,
           encoding: utf8, mode: FileMode.writeOnly);
-      debugPrint('ARCHIVO CSV GENERADO EN: ${file.path}');
+      LoggerService.info('ARCHIVO CSV GENERADO EN: ${file.path}');
       return filePath; // Retornamos la ruta completa con extensión
-    } catch (e) {
+    } catch (e, s) {
+      LoggerService.error('ERROR AL GENERAR EL ARCHIVO CSV: $e', s);
       throw Exception('ERROR AL GENERAR EL ARCHIVO CSV: $e');
     }
   }

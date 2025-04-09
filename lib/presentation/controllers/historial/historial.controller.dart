@@ -7,6 +7,8 @@ import 'package:share_plus/share_plus.dart';
 import 'package:app_guias/providers/guia.provider.dart';
 import 'package:app_guias/providers/auth.provider.dart';
 import 'package:app_guias/models/guia.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:app_guias/services/log/logger.service.dart';
 
 class GuideFile {
   final String fileName;
@@ -276,72 +278,95 @@ class HistorialController extends ChangeNotifier {
   Future<bool> abrirArchivo(GuideFile archivo) async {
     try {
       // Si es un archivo local (tiene ruta completa)
-      if (archivo.fullPath.isNotEmpty) {
+      if (archivo.fullPath.isNotEmpty &&
+          await File(archivo.fullPath).exists()) {
+        LoggerService.info('Abriendo archivo local: ${archivo.fullPath}');
         final result = await OpenFile.open(archivo.fullPath);
-        return result.type == ResultType.done;
+        if (result.type != ResultType.done) {
+          _errorMessage =
+              'No se pudo abrir el archivo local: ${result.message}';
+          LoggerService.warning(_errorMessage);
+          notifyListeners();
+          return false;
+        }
+        return true;
       }
       // Si es un archivo del backend (no tiene ruta completa)
       else {
+        LoggerService.info(
+            'Intentando abrir archivo del backend: ${archivo.fileName}');
         Guia? guiaEncontrada;
         try {
-          // Intentamos buscar primero por nombre exacto
-          guiaEncontrada = _guiaProvider.guias.firstWhere(
-            (guia) => guia.nombre == archivo.fileName,
-            orElse: () => throw Exception('Nombre exacto no encontrado'),
-          );
+          // Buscar guía correspondiente en el provider
+          guiaEncontrada = _guiaProvider.guias.firstWhere((guia) =>
+              archivo.fileName.contains(guia.nombre) ||
+              guia.nombre.contains(archivo.fileName));
         } catch (e) {
-          // Si no encontramos por nombre exacto, buscamos por nombre parcial
-          for (var guia in _guiaProvider.guias) {
-            if (archivo.fileName.contains(guia.nombre) ||
-                guia.nombre.contains(archivo.fileName)) {
-              guiaEncontrada = guia;
-              break;
-            }
-          }
-
-          // Si aún no encontramos, usamos el primer elemento como fallback
-          if (guiaEncontrada == null && _guiaProvider.guias.isNotEmpty) {
-            guiaEncontrada = _guiaProvider.guias.first;
-          }
+          guiaEncontrada = _guiaProvider.guias.firstWhereOrNull((guia) =>
+              archivo.fileName.contains(guia.nombre) ||
+              guia.nombre.contains(archivo.fileName));
+          // Corregido: Solo mensaje para warning
+          LoggerService.warning(
+              'Guía no encontrada por nombre exacto, buscando parcialmente...');
         }
 
         if (guiaEncontrada == null) {
-          _errorMessage = 'No se encontró la guía en el servidor';
+          _errorMessage =
+              'No se encontró la guía correspondiente en el servidor.';
+          LoggerService.error(_errorMessage);
           notifyListeners();
           return false;
         }
 
+        LoggerService.info(
+            'Guía encontrada (${guiaEncontrada.id}). Descargando...');
         // Descargar el archivo
         final bytes = await _guiaProvider.downloadGuia(guiaEncontrada.id);
         if (bytes == null) {
-          _errorMessage = 'No se pudo descargar la guía';
+          _errorMessage = 'No se pudo descargar la guía ${guiaEncontrada.id}.';
+          LoggerService.error(_errorMessage);
           notifyListeners();
           return false;
         }
+        LoggerService.info(
+            'Guía ${guiaEncontrada.id} descargada (${bytes.lengthInBytes} bytes). Guardando en temporal...');
 
         try {
-          // Guardar temporalmente y abrir
-          final tempDir = Directory('/storage/emulated/0/Download/Guias/temp');
-          if (!await tempDir.exists()) {
-            await tempDir.create(recursive: true);
-          }
+          // --- USAR DIRECTORIO TEMPORAL DEL SISTEMA ---
+          final Directory tempDir = await getTemporaryDirectory();
+          final String tempFilePath =
+              path.join(tempDir.path, archivo.fileName); // Usar path.join
+          final File tempFile = File(tempFilePath);
+          // ---------------------------------------------
 
-          final tempFile = File('${tempDir.path}/${archivo.fileName}');
           await tempFile.writeAsBytes(bytes);
+          LoggerService.info('Archivo temporal guardado en: ${tempFile.path}');
 
-          final result = await OpenFile.open(tempFile.path);
-          return result.type == ResultType.done;
-        } catch (fileError) {
-          _errorMessage = 'Error al abrir el archivo descargado: $fileError';
+          // Abrir el archivo temporal
+          final result = await OpenFile.open(tempFilePath);
+          if (result.type != ResultType.done) {
+            _errorMessage =
+                'No se pudo abrir el archivo descargado: ${result.message}';
+            // Corregido: Solo mensaje para warning
+            LoggerService.warning(_errorMessage);
+            notifyListeners();
+            return false;
+          }
+        } catch (fileError, stackTrace) {
+          _errorMessage =
+              'Error al guardar o abrir el archivo temporal: $fileError';
+          LoggerService.error(_errorMessage, stackTrace);
           notifyListeners();
           return false;
         }
       }
-    } catch (e) {
-      _errorMessage = 'No se pudo abrir el archivo: $e';
+    } catch (e, stacktrace) {
+      _errorMessage = 'Error general al intentar abrir el archivo: $e';
+      LoggerService.error(_errorMessage, stacktrace);
       notifyListeners();
       return false;
     }
+    return true;
   }
 
   // Métodos para paginación PDF
@@ -821,5 +846,15 @@ class HistorialController extends ChangeNotifier {
   bool isSharingFile(GuideFile file) {
     if (!_isSharing) return false;
     return _sharingFileId == file.fullPath || _sharingFileId == file.fileName;
+  }
+}
+
+// Helper para firstWhereOrNull (si no usas collection)
+extension FirstWhereExt<T> on Iterable<T> {
+  T? firstWhereOrNull(bool Function(T element) test) {
+    for (var element in this) {
+      if (test(element)) return element;
+    }
+    return null;
   }
 }

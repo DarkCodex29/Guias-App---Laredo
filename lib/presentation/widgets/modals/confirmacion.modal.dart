@@ -48,27 +48,35 @@ class ConfirmacionModal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomModal(
-      title: title,
-      message: message,
-      primaryButtonText: primaryButtonText,
-      secondaryButtonText: secondaryButtonText,
-      onPrimaryButtonPressed: primaryButtonText != null
-          ? () {
-              if (context.mounted) {
-                onConfirm?.call();
-                Navigator.pop(context, true);
-              }
-            }
-          : null,
-      onSecondaryButtonPressed: secondaryButtonText != null
-          ? () {
-              if (context.mounted) {
-                onCancel?.call();
-                Navigator.pop(context, false);
-              }
-            }
-          : null,
+    final isDesktop = MediaQuery.of(context).size.width > 600;
+    final maxWidth = isDesktop ? 400.0 : double.infinity;
+
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: CustomModal(
+          title: title,
+          message: message,
+          primaryButtonText: primaryButtonText,
+          secondaryButtonText: secondaryButtonText,
+          onPrimaryButtonPressed: primaryButtonText != null
+              ? () {
+                  if (context.mounted) {
+                    onConfirm?.call();
+                    Navigator.pop(context, true);
+                  }
+                }
+              : null,
+          onSecondaryButtonPressed: secondaryButtonText != null
+              ? () {
+                  if (context.mounted) {
+                    onCancel?.call();
+                    Navigator.pop(context, false);
+                  }
+                }
+              : null,
+        ),
+      ),
     );
   }
 }

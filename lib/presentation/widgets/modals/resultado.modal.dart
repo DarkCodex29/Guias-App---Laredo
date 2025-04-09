@@ -69,33 +69,47 @@ class ResultadoModal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomModal(
-      title: title,
-      message: message,
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(
-            child: Icon(
-              isSuccess ? Icons.check_circle : Icons.error_outline,
-              color: isSuccess ? Colors.green : Colors.red,
-              size: 48,
-            ),
+    final isDesktop = MediaQuery.of(context).size.width > 600;
+    final iconSize = isDesktop ? 60.0 : 48.0;
+    final verticalPadding = isDesktop ? 24.0 : 16.0;
+    final maxWidth = isDesktop ? 400.0 : double.infinity;
+
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: CustomModal(
+          title: title,
+          message: message,
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Icon(
+                  isSuccess ? Icons.check_circle_outline : Icons.error_outline,
+                  color:
+                      isSuccess ? Colors.green.shade600 : Colors.red.shade600,
+                  size: iconSize,
+                ),
+              ),
+              SizedBox(height: verticalPadding),
+              if (detailText != null) ...[
+                if (details == null)
+                  Center(child: Text(detailText!, textAlign: TextAlign.center))
+                else
+                  Text(
+                    detailText!,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                SizedBox(height: verticalPadding / 1.5),
+              ],
+              if (details != null) ...details!,
+            ],
           ),
-          const SizedBox(height: 16),
-          if (detailText != null) ...[
-            Text(
-              detailText!,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-          ],
-          if (details != null) ...details!,
-        ],
+          primaryButtonText: buttonText,
+          onPrimaryButtonPressed: onButtonPressed,
+        ),
       ),
-      primaryButtonText: buttonText,
-      onPrimaryButtonPressed: onButtonPressed,
     );
   }
 }

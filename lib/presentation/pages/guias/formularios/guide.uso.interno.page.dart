@@ -585,14 +585,7 @@ class UsoInternoPage extends StatelessWidget {
     final isLastAvailableStep = currentIndex == availableSteps.length - 1;
 
     if (isLastAvailableStep) {
-      // Usar isLastAvailableStep
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Guía completada (simulación)'),
-          backgroundColor: Colors.green,
-        ),
-      );
-      Navigator.of(context).popUntil((route) => route.isFirst);
+      Navigator.pop(context);
     } else {
       // Esto no debería ejecutarse si la lógica es correcta,
       // pero lo dejamos por seguridad.

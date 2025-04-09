@@ -35,7 +35,7 @@ dependencies:
   intl: ^0.20.2
   logger: ^2.5.0
   path_provider: ^2.1.5
-  file_picker: ^9.2.1
+  file_picker: ^6.2.1
   provider: ^6.1.2
   shared_preferences: ^2.5.2
   syncfusion_flutter_datepicker: ^28.2.12
@@ -43,7 +43,7 @@ dependencies:
   device_info_plus: ^9.1.2
   open_file: ^3.5.10
   http_parser: ^4.1.2
-  path: ^1.9.1
+  path: ^1.9.0
   shimmer: ^3.0.0
   share_plus: ^10.1.4
   flutter_localizations:
