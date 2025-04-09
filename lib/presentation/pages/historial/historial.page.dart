@@ -54,6 +54,8 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
     final controller = context.watch<HistorialController>();
     final authProvider = context.watch<AuthProvider>();
     final isAdmin = authProvider.role == 'ADMINISTRADOR';
+    final size = MediaQuery.of(context).size;
+    final isDesktop = size.width > 600;
 
     return DefaultTabController(
       length: 2,
@@ -86,15 +88,71 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
             indicatorColor: AppColors.white,
           ),
         ),
-        body: TabBarView(
-          children: [
-            _buildTabContent(controller.archivosPdf, controller, context,
-                isPdf: true),
-            _buildTabContent(controller.archivosCsv, controller, context,
-                isPdf: false),
-          ],
-        ),
+        body: isDesktop
+            ? _buildDesktopLayout(controller, context, isAdmin)
+            : _buildMobileLayout(controller, context, isAdmin),
       ),
+    );
+  }
+
+  Widget _buildMobileLayout(
+      HistorialController controller, BuildContext context, bool isAdmin) {
+    return TabBarView(
+      children: [
+        _buildTabContent(controller.archivosPdf, controller, context,
+            isPdf: true),
+        _buildTabContent(controller.archivosCsv, controller, context,
+            isPdf: false),
+      ],
+    );
+  }
+
+  Widget _buildDesktopLayout(
+      HistorialController controller, BuildContext context, bool isAdmin) {
+    return Row(
+      children: [
+        Expanded(
+          flex: 3,
+          child: TabBarView(
+            children: [
+              _buildTabContent(controller.archivosPdf, controller, context,
+                  isPdf: true),
+              _buildTabContent(controller.archivosCsv, controller, context,
+                  isPdf: false),
+            ],
+          ),
+        ),
+        Expanded(
+          flex: 1,
+          child: Container(
+            color: AppColors.primary.withOpacity(0.05),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Text(
+                    'Nota',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    'Solo el administrador puede ver el historial de guías completo.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.black54,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 

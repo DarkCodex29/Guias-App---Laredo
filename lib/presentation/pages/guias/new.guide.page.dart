@@ -10,6 +10,7 @@ import 'package:app_guias/presentation/pages/guias/formularios/guide.transportis
 import 'package:app_guias/presentation/pages/guias/formularios/guide.uso.interno.page.dart';
 import 'package:app_guias/presentation/widgets/custom.button.dart';
 import 'package:app_guias/presentation/widgets/custom.progress.button.dart';
+import 'package:app_guias/core/constants/app.colors.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -45,6 +46,8 @@ class _NewGuidePageContent extends StatelessWidget {
     final flowController = context.watch<GuideFlowController>();
     final newGuideController = context.watch<NewGuideController>();
     final totalProgress = flowController.getCompletionPercentage();
+    final size = MediaQuery.of(context).size;
+    final isDesktop = size.width > 600;
 
     // Proporcionar el contexto al controlador
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -70,150 +73,243 @@ class _NewGuidePageContent extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          children: [
-            Expanded(
-              child: ListView(
-                children: [
-                  CustomProgressButton(
-                    text: 'Motivo de traslado',
-                    onTap: () => _navigateToForm(
-                      context,
-                      flowController,
-                      GuideStep.motivoTraslado,
-                      const MotivoTrasladoPage(),
-                    ),
-                    status:
-                        _getStatus(flowController, GuideStep.motivoTraslado),
-                    progressValue: flowController.getStepCompletionPercentage(
-                            GuideStep.motivoTraslado) /
-                        100,
+      body: isDesktop
+          ? _buildDesktopLayout(
+              context, flowController, newGuideController, totalProgress)
+          : _buildMobileLayout(
+              context, flowController, newGuideController, totalProgress),
+    );
+  }
+
+  Widget _buildMobileLayout(
+      BuildContext context,
+      GuideFlowController flowController,
+      NewGuideController newGuideController,
+      double totalProgress) {
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        children: [
+          Expanded(
+            child: ListView(
+              children: _buildProgressButtons(context, flowController),
+            ),
+          ),
+          const SizedBox(height: 16),
+          CustomButton(
+            text: 'Generar Guía de Remisión',
+            onPressed: totalProgress == 100
+                ? () => newGuideController.generateGuide(context)
+                : null,
+            progress: totalProgress,
+          ),
+          const SizedBox(height: 12),
+          CustomButton(
+            text: 'Regresar',
+            onPressed: () => Navigator.pop(context),
+            isOutlined: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDesktopLayout(
+      BuildContext context,
+      GuideFlowController flowController,
+      NewGuideController newGuideController,
+      double totalProgress) {
+    return Row(
+      children: [
+        Expanded(
+          flex: 3,
+          child: Padding(
+            padding: const EdgeInsets.all(32.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Nueva Guía de Remisión',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
                   ),
-                  const SizedBox(height: 12),
-                  CustomProgressButton(
-                    text: 'Partida',
-                    onTap: () => _navigateToForm(
-                      context,
-                      flowController,
-                      GuideStep.partida,
-                      const PartidaPage(),
-                    ),
-                    status: _getStatus(flowController, GuideStep.partida),
-                    progressValue: flowController
-                            .getStepCompletionPercentage(GuideStep.partida) /
-                        100,
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: ListView(
+                    children: _buildProgressButtons(context, flowController),
                   ),
-                  const SizedBox(height: 12),
-                  CustomProgressButton(
-                    text: 'Llegada',
-                    onTap: () => _navigateToForm(
-                      context,
-                      flowController,
-                      GuideStep.llegada,
-                      const LlegadaPage(),
+                ),
+                const SizedBox(height: 16),
+                CustomButton(
+                  text: 'Generar Guía de Remisión',
+                  onPressed: totalProgress == 100
+                      ? () => newGuideController.generateGuide(context)
+                      : null,
+                  progress: totalProgress,
+                ),
+                const SizedBox(height: 12),
+                CustomButton(
+                  text: 'Regresar',
+                  onPressed: () => Navigator.pop(context),
+                  isOutlined: true,
+                ),
+              ],
+            ),
+          ),
+        ),
+        Expanded(
+          flex: 2,
+          child: Container(
+            color: AppColors.primary.withOpacity(0.05),
+            child: Padding(
+              padding: const EdgeInsets.all(32.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Text(
+                    'Instrucciones',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
                     ),
-                    status: _getStatus(flowController, GuideStep.llegada),
-                    progressValue: flowController
-                            .getStepCompletionPercentage(GuideStep.llegada) /
-                        100,
                   ),
-                  const SizedBox(height: 12),
-                  CustomProgressButton(
-                    text: 'Destinatario',
-                    onTap: () => _navigateToForm(
-                      context,
-                      flowController,
-                      GuideStep.destinatario,
-                      const DestinatarioPage(),
+                  SizedBox(height: 16),
+                  Text(
+                    'Complete cada sección para generar una nueva guía de remisión. Asegúrese de que toda la información sea correcta antes de proceder.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.black54,
                     ),
-                    status: _getStatus(flowController, GuideStep.destinatario),
-                    progressValue: flowController.getStepCompletionPercentage(
-                            GuideStep.destinatario) /
-                        100,
                   ),
-                  const SizedBox(height: 12),
-                  CustomProgressButton(
-                    text: 'Transporte',
-                    onTap: () => _navigateToForm(
-                      context,
-                      flowController,
-                      GuideStep.transporte,
-                      const TransportePage(),
-                    ),
-                    status: _getStatus(flowController, GuideStep.transporte),
-                    progressValue: flowController
-                            .getStepCompletionPercentage(GuideStep.transporte) /
-                        100,
-                  ),
-                  const SizedBox(height: 12),
-                  CustomProgressButton(
-                    text: 'Detalle de carga',
-                    onTap: () => _navigateToForm(
-                      context,
-                      flowController,
-                      GuideStep.detalleCarga,
-                      const DetailPage(),
-                    ),
-                    status: _getStatus(flowController, GuideStep.detalleCarga),
-                    progressValue: flowController.getStepCompletionPercentage(
-                            GuideStep.detalleCarga) /
-                        100,
-                  ),
-                  const SizedBox(height: 12),
-                  if (flowController.shouldShowTransportistaStep()) ...[
-                    CustomProgressButton(
-                      text: 'Transportista',
-                      onTap: () => _navigateToForm(
-                        context,
-                        flowController,
-                        GuideStep.transportista,
-                        const TransportistaPage(),
-                      ),
-                      status:
-                          _getStatus(flowController, GuideStep.transportista),
-                      progressValue: flowController.getStepCompletionPercentage(
-                              GuideStep.transportista) /
-                          100,
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                  CustomProgressButton(
-                    text: 'Uso interno',
-                    onTap: () => _navigateToForm(
-                      context,
-                      flowController,
-                      GuideStep.usoInterno,
-                      const UsoInternoPage(),
-                    ),
-                    status: _getStatus(flowController, GuideStep.usoInterno),
-                    progressValue: flowController
-                            .getStepCompletionPercentage(GuideStep.usoInterno) /
-                        100,
-                  ),
-                  const SizedBox(height: 12),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
-            CustomButton(
-              text: 'Generar Guía de Remisión',
-              onPressed: totalProgress == 100
-                  ? () => newGuideController.generateGuide(context)
-                  : null,
-              progress: totalProgress,
-            ),
-            const SizedBox(height: 12),
-            CustomButton(
-              text: 'Regresar',
-              onPressed: () => Navigator.pop(context),
-              isOutlined: true,
-            ),
-          ],
+          ),
         ),
-      ),
+      ],
     );
+  }
+
+  List<Widget> _buildProgressButtons(
+      BuildContext context, GuideFlowController flowController) {
+    return [
+      CustomProgressButton(
+        text: 'Motivo de traslado',
+        onTap: () => _navigateToForm(
+          context,
+          flowController,
+          GuideStep.motivoTraslado,
+          const MotivoTrasladoPage(),
+        ),
+        status: _getStatus(flowController, GuideStep.motivoTraslado),
+        progressValue: flowController
+                .getStepCompletionPercentage(GuideStep.motivoTraslado) /
+            100,
+      ),
+      const SizedBox(height: 12),
+      CustomProgressButton(
+        text: 'Partida',
+        onTap: () => _navigateToForm(
+          context,
+          flowController,
+          GuideStep.partida,
+          const PartidaPage(),
+        ),
+        status: _getStatus(flowController, GuideStep.partida),
+        progressValue:
+            flowController.getStepCompletionPercentage(GuideStep.partida) / 100,
+      ),
+      const SizedBox(height: 12),
+      CustomProgressButton(
+        text: 'Llegada',
+        onTap: () => _navigateToForm(
+          context,
+          flowController,
+          GuideStep.llegada,
+          const LlegadaPage(),
+        ),
+        status: _getStatus(flowController, GuideStep.llegada),
+        progressValue:
+            flowController.getStepCompletionPercentage(GuideStep.llegada) / 100,
+      ),
+      const SizedBox(height: 12),
+      CustomProgressButton(
+        text: 'Destinatario',
+        onTap: () => _navigateToForm(
+          context,
+          flowController,
+          GuideStep.destinatario,
+          const DestinatarioPage(),
+        ),
+        status: _getStatus(flowController, GuideStep.destinatario),
+        progressValue:
+            flowController.getStepCompletionPercentage(GuideStep.destinatario) /
+                100,
+      ),
+      const SizedBox(height: 12),
+      CustomProgressButton(
+        text: 'Transporte',
+        onTap: () => _navigateToForm(
+          context,
+          flowController,
+          GuideStep.transporte,
+          const TransportePage(),
+        ),
+        status: _getStatus(flowController, GuideStep.transporte),
+        progressValue:
+            flowController.getStepCompletionPercentage(GuideStep.transporte) /
+                100,
+      ),
+      const SizedBox(height: 12),
+      CustomProgressButton(
+        text: 'Detalle de carga',
+        onTap: () => _navigateToForm(
+          context,
+          flowController,
+          GuideStep.detalleCarga,
+          const DetailPage(),
+        ),
+        status: _getStatus(flowController, GuideStep.detalleCarga),
+        progressValue:
+            flowController.getStepCompletionPercentage(GuideStep.detalleCarga) /
+                100,
+      ),
+      const SizedBox(height: 12),
+      if (flowController.shouldShowTransportistaStep()) ...[
+        CustomProgressButton(
+          text: 'Transportista',
+          onTap: () => _navigateToForm(
+            context,
+            flowController,
+            GuideStep.transportista,
+            const TransportistaPage(),
+          ),
+          status: _getStatus(flowController, GuideStep.transportista),
+          progressValue: flowController
+                  .getStepCompletionPercentage(GuideStep.transportista) /
+              100,
+        ),
+        const SizedBox(height: 12),
+      ],
+      CustomProgressButton(
+        text: 'Uso interno',
+        onTap: () => _navigateToForm(
+          context,
+          flowController,
+          GuideStep.usoInterno,
+          const UsoInternoPage(),
+        ),
+        status: _getStatus(flowController, GuideStep.usoInterno),
+        progressValue:
+            flowController.getStepCompletionPercentage(GuideStep.usoInterno) /
+                100,
+      ),
+      const SizedBox(height: 12),
+    ];
   }
 
   OptionStatus _getStatus(GuideFlowController controller, GuideStep step) {
