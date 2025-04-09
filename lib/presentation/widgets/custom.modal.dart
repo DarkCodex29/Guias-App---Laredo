@@ -81,8 +81,10 @@ class CustomModal extends StatelessWidget {
                 ],
                 if (content != null) ...[
                   const SizedBox(height: 12),
-                  SingleChildScrollView(
-                    child: content!,
+                  Flexible(
+                    child: SingleChildScrollView(
+                      child: content!,
+                    ),
                   ),
                 ],
                 const SizedBox(height: 16),

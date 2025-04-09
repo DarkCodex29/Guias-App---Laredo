@@ -30,11 +30,15 @@ class ModalDetalleCarga extends StatelessWidget {
     controller.setJironProvider(jironProvider);
     controller.setCuartelProvider(cuartelProvider);
 
+    final size = MediaQuery.of(context).size;
+    final isDesktop = size.width > 600;
+    final double modalWidth = isDesktop ? 500 : size.width * 0.9;
+
     showDialog(
       context: context,
       builder: (context) => ChangeNotifierProvider.value(
         value: controller,
-        child: const _ModalDetalleCargaContent(),
+        child: _ModalDetalleCargaContent(width: modalWidth),
       ),
     ).then((_) => onDetalleAgregado());
   }
@@ -49,7 +53,9 @@ class ModalDetalleCarga extends StatelessWidget {
 }
 
 class _ModalDetalleCargaContent extends StatelessWidget {
-  const _ModalDetalleCargaContent();
+  final double? width;
+
+  const _ModalDetalleCargaContent({this.width});
 
   @override
   Widget build(BuildContext context) {
@@ -59,6 +65,7 @@ class _ModalDetalleCargaContent extends StatelessWidget {
     return StatefulBuilder(
       builder: (context, setState) {
         return CustomModal(
+          width: width,
           title: controller.editingIndex == null
               ? 'Añadir bienes'
               : 'Editar bienes',
