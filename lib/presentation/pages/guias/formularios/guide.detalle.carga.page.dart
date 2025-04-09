@@ -56,7 +56,7 @@ class DetailPage extends StatelessWidget {
     return Stack(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(24.0, 24.0, 24.0, 150.0),
+          padding: const EdgeInsets.fromLTRB(24.0, 24.0, 24.0, 90.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -378,38 +378,11 @@ class DetailPage extends StatelessWidget {
   Widget _buildMobileBottomAppBar(
       BuildContext context, GuideFlowController flowController) {
     final controller = flowController.detalleCargaController;
-    final progress =
-        flowController.getStepCompletionPercentage(GuideStep.detalleCarga);
-    final isCompleted = flowController.isStepCompleted(GuideStep.detalleCarga);
-    final products = controller.detalleCargas;
 
-    return BottomAppBar(
+    return Container(
+      padding: const EdgeInsets.all(24.0),
       color: Colors.white,
-      elevation: 8.0,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
-        child: Row(
-          children: [
-            Expanded(
-              child: CustomButton(
-                text: 'Regresar',
-                onPressed: () => Navigator.pop(context),
-                isOutlined: true,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: CustomButton(
-                text: 'Siguiente',
-                progress: progress.toDouble(),
-                isCompleted: isCompleted,
-                onPressed: () =>
-                    _onNextButtonPressed(context, flowController, products),
-              ),
-            ),
-          ],
-        ),
-      ),
+      child: _buildNavigationButtons(context, flowController, controller),
     );
   }
 

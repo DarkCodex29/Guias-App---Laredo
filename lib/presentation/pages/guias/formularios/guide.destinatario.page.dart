@@ -92,7 +92,6 @@ class DestinatarioPage extends StatelessWidget {
     // Layout de dos columnas para escritorio
     return Row(
       children: [
-        // Columna izquierda para el formulario y botones
         Expanded(
           flex: 3,
           child: Padding(
@@ -113,7 +112,6 @@ class DestinatarioPage extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 24), // Espacio antes de los botones
-                // Botones integrados en la columna principal
                 CustomButton(
                   text: 'Siguiente',
                   isCompleted: isCompleted,
