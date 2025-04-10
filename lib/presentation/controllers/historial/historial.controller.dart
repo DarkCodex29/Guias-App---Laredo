@@ -136,8 +136,21 @@ class HistorialController extends ChangeNotifier {
   // Para compatibilidad con código existente
   bool get isLoadingPage => _isLoadingPagePDF;
 
+  // Variables para búsqueda y filtrado
+  String _searchText = '';
+  List<GuideFile> _filteredPdfFiles = [];
+  List<GuideFile> _filteredCsvFiles = [];
+
+  // Getters para búsqueda y filtrado
+  String get searchText => _searchText;
+  List<GuideFile> get filteredPdfFiles => _filteredPdfFiles;
+  List<GuideFile> get filteredCsvFiles => _filteredCsvFiles;
+
+  final TextEditingController searchController = TextEditingController();
+
   @override
   void dispose() {
+    searchController.dispose();
     _mounted = false;
     super.dispose();
   }
@@ -180,12 +193,12 @@ class HistorialController extends ChangeNotifier {
       // Cargar guías del backend según el rol de usuario
       if (isAdmin) {
         // Administrador: cargar todas las guías
-        await _guiaProvider.loadGuias();
+        await _guiaProvider.loadGuias(all: true);
       } else {
         // Usuario normal: cargar solo sus guías
         final userId = _authProvider.userId;
         if (userId != null) {
-          await _guiaProvider.loadGuiasByUsuario(userId);
+          await _guiaProvider.loadGuiasByUsuario(userId, all: true);
         }
       }
 
@@ -199,6 +212,9 @@ class HistorialController extends ChangeNotifier {
 
       // Ordenar por fecha de creación (más reciente primero)
       _archivosPdf.sort((a, b) => b.creationDate.compareTo(a.creationDate));
+
+      // Después de haber obtenido y ordenado los archivos, inicializar las listas filtradas
+      _applyFilters();
     } catch (e) {
       if (!_mounted) {
         return; // Verificar antes de actualizar el estado de error
@@ -451,13 +467,12 @@ class HistorialController extends ChangeNotifier {
       // Cargar archivos PDF desde el backend
       if (isAdmin) {
         // Administrador: cargar todas las guías
-        await _guiaProvider.loadGuias(page: _guiaProvider.currentPagePDF);
+        await _guiaProvider.loadGuias(all: true);
       } else {
         // Usuario normal: cargar solo sus guías
         final userId = _authProvider.userId;
         if (userId != null) {
-          await _guiaProvider.loadGuiasByUsuario(userId,
-              page: _guiaProvider.currentPagePDF);
+          await _guiaProvider.loadGuiasByUsuario(userId, all: true);
         }
       }
 
@@ -475,7 +490,7 @@ class HistorialController extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       if (!_mounted) return;
-      _errorMessage = 'Error al cargar los archivos PDF: ${e.toString()}';
+      _errorMessage = 'Error al cargar los archivos PDF: \\${e.toString()}';
       _isLoadingPagePDF = false;
       notifyListeners();
     }
@@ -846,6 +861,46 @@ class HistorialController extends ChangeNotifier {
   bool isSharingFile(GuideFile file) {
     if (!_isSharing) return false;
     return _sharingFileId == file.fullPath || _sharingFileId == file.fileName;
+  }
+
+  // Función para buscar/filtrar guías
+  void searchGuias(String searchTerm) {
+    _searchText = searchTerm;
+    _applyFilters();
+  }
+
+  // Método para limpiar todos los filtros
+  void clearFilters() {
+    _searchText = '';
+    searchController.clear();
+    _applyFilters();
+  }
+
+  // Aplicar todos los filtros actuales
+  void _applyFilters() {
+    _filteredPdfFiles = _filterFiles(_archivosPdf);
+    _filteredCsvFiles = _filterFiles(_archivosCsv);
+    notifyListeners();
+  }
+
+  // Método para filtrar archivos según los criterios actuales
+  List<GuideFile> _filterFiles(List<GuideFile> files) {
+    if (_searchText.isEmpty) {
+      return List.from(files);
+    }
+
+    return files.where((file) {
+      // Filtrar por texto de búsqueda
+      return file.fileName.toLowerCase().contains(_searchText.toLowerCase()) ||
+          (file.serieCorrelativo != null &&
+              file.serieCorrelativo!
+                  .toLowerCase()
+                  .contains(_searchText.toLowerCase())) ||
+          (file.usernameUsuario != null &&
+              file.usernameUsuario!
+                  .toLowerCase()
+                  .contains(_searchText.toLowerCase()));
+    }).toList();
   }
 }
 

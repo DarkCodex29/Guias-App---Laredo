@@ -286,114 +286,23 @@ class GuiaService {
 
   Future<Map<String, dynamic>> getGuiasByUsuario({
     required String idUsuario,
-    int page = 1,
-    int pageSize = 50,
     bool all = false,
   }) async {
     try {
-      // Verificar si el token está configurado
-      if (_dio.options.headers['Authorization'] == null ||
-          (_dio.options.headers['Authorization'] as String).isEmpty) {
-        LoggerService.error(
-            'No hay token de autorización configurado para consultar guías de usuario');
-        return {
-          'success': false,
-          'message': 'Error de autenticación: No hay token configurado',
-        };
-      }
-
-      // Mostrar el token que se está usando (parcialmente oculto por seguridad)
-      final token = _dio.options.headers['Authorization'] as String;
-
-      // SOLO PARA DEPURACIÓN: Mostrar el token completo (esto representa un riesgo de seguridad)
-      LoggerService.warning('DEBUG - TOKEN COMPLETO: $token');
-
-      final tokenDisplay = token.length > 20
-          ? '${token.substring(0, 15)}...${token.substring(token.length - 10)}'
-          : token;
-      LoggerService.info(
-          'Consultando guías para usuario ID: $idUsuario con token: $tokenDisplay');
-
-      // Asegurar que la URL sea exactamente como en el ejemplo curl
       final String endpoint =
           ApiEndpoints.guiasByUsuario.replaceAll('{idUsuario}', idUsuario);
-      LoggerService.info(
-          'URL de la solicitud: $endpoint con parámetros: page=$page, pageSize=$pageSize, all=$all');
-
-      // Mostrar la URL completa incluyendo el host base
-      LoggerService.info('URL completa: ${baseUrl + endpoint}');
 
       final response = await _dio.get(
         endpoint,
         queryParameters: {
-          'page': page,
-          'pageSize': pageSize,
           'all': all,
         },
       );
 
-      LoggerService.info('Respuesta status: ${response.statusCode}');
-
-      // Registrar las cabeceras de la respuesta
-      LoggerService.info('Cabeceras de respuesta: ${response.headers}');
-
-      // Registrar el cuerpo completo de la respuesta
-      if (response.data != null) {
-        try {
-          LoggerService.info('Cuerpo de la respuesta: ${response.data}');
-        } catch (e) {
-          LoggerService.info(
-              'No se pudo registrar el cuerpo de la respuesta: $e');
-        }
-      } else {
-        LoggerService.info('Cuerpo de la respuesta: null');
-      }
-
       if (response.statusCode == 200 && response.data != null) {
-        // CASO 1: La respuesta es un array directo
-        if (response.data is List) {
-          LoggerService.info(
-              'La respuesta es un array directo con ${response.data.length} elementos');
-          return {
-            'success': true,
-            'data': response.data,
-            'total': response.data.length,
-            'totalPages': 1,
-            'page': page,
-            'pageSize': pageSize,
-            'hasNext': false,
-            'hasPrevious': false,
-          };
-        }
-
-        // CASO 2: La respuesta es un objeto con propiedad 'data'
-        if (response.data is Map && response.data.containsKey('data')) {
-          LoggerService.info('La respuesta es un objeto con propiedad data');
-          LoggerService.info('Respuesta completa: ${response.data}');
-          return {
-            'success': true,
-            'data': response.data['data'] ?? [],
-            'total': response.data['totalCount'] ?? 0,
-            'totalPages': response.data['totalPages'] ?? 1,
-            'page': response.data['page'] ?? page,
-            'pageSize': response.data['pageSize'] ?? pageSize,
-            'hasNext': response.data['hasNext'] ?? false,
-            'hasPrevious': response.data['hasPrevious'] ?? false,
-          };
-        }
-
-        // CASO 3: Otro formato inesperado pero status 200
-        LoggerService.warning(
-            'Respuesta con formato inesperado: ${response.data}');
         return {
           'success': true,
-          'data': response.data, // Devolvemos lo que sea que recibimos
-          'total': 1,
-          'totalPages': 1,
-          'page': page,
-          'pageSize': pageSize,
-          'hasNext': false,
-          'hasPrevious': false,
+          'data': response.data,
         };
       }
 
@@ -453,33 +362,24 @@ class GuiaService {
     }
   }
 
-  // GET /api/guias - Obtener todas las guías
-  Future<Map<String, dynamic>> getAllGuias(
-      {int? page, int? pageSize, bool all = false}) async {
+  // Obtener todas las guías
+  Future<Map<String, dynamic>> getAllGuias({bool all = false}) async {
     try {
       final response = await _dio.get(
         ApiEndpoints.guias,
         queryParameters: {
-          if (page != null) 'page': page,
-          if (pageSize != null) 'pageSize': pageSize,
           'all': all,
         },
       );
 
       if (response.statusCode == 200 && response.data != null) {
-        // Registrar los datos completos de la respuesta para depuración
         LoggerService.info(
-            'Respuesta completa de getAllGuias: ${response.data}');
-
+            'Respuesta completa de getAllGuias: \\${response.data}');
         return {
           'success': true,
           'data': response.data['data'] ?? [],
           'total': response.data['totalCount'] ?? 0,
           'totalPages': response.data['totalPages'] ?? 1,
-          'page': response.data['page'] ?? page,
-          'pageSize': response.data['pageSize'] ?? pageSize,
-          'hasNext': response.data['hasNext'] ?? false,
-          'hasPrevious': response.data['hasPrevious'] ?? false,
         };
       }
 
@@ -488,19 +388,9 @@ class GuiaService {
         'message': response.data?['message'] ?? 'Error al obtener las guías',
       };
     } on DioException catch (e) {
-      String errorMessage;
-      if (e.type == DioExceptionType.connectionTimeout) {
-        errorMessage = 'Tiempo de espera agotado';
-      } else if (e.type == DioExceptionType.connectionError) {
-        errorMessage = 'No se pudo conectar al servidor';
-      } else {
-        errorMessage =
-            e.response?.data?['message'] ?? 'Error de conexión: ${e.message}';
-      }
-
       return {
         'success': false,
-        'message': errorMessage,
+        'message': e.response?.data?['message'] ?? 'Error al obtener las guías',
       };
     } catch (e) {
       return {

@@ -12,7 +12,7 @@ class GuiaProvider extends ChangeNotifier {
   int _totalPagesPDF = 1;
   int _currentPageCSV = 1;
   int _totalPagesCSV = 1;
-  int _pageSize = 10;
+  final int _pageSize = 10;
   String? _idUsuario;
 
   GuiaProvider({required String baseUrl, required String token})
@@ -53,65 +53,19 @@ class GuiaProvider extends ChangeNotifier {
     return response['success'] as bool;
   }
 
-  void _processPaginationResponse(Map<String, dynamic> response) {
-    _currentPagePDF = response['page'] ?? 1;
-    _pageSize = response['pageSize'] ?? 10;
-
-    // Usar directamente totalPages de la respuesta si está disponible
-    if (response.containsKey('totalPages')) {
-      _totalPagesPDF = response['totalPages'];
-    } else if (response.containsKey('total')) {
-      // Alternativa: calcular totalPages basado en total y pageSize
-      final total = response['total'] as int;
-      _totalPagesPDF = (total / _pageSize).ceil();
-    } else if (response.containsKey('totalCount')) {
-      // Si viene como totalCount (formato más común en la API)
-      final totalCount = response['totalCount'] as int;
-      _totalPagesPDF = (totalCount / _pageSize).ceil();
-    } else {
-      // Valor por defecto
-      _totalPagesPDF = 1;
-    }
-
-    // Registrar información para depuración
-    LoggerService.info('===== INFO PAGINACIÓN =====');
-    LoggerService.info('currentPage: $_currentPagePDF');
-    LoggerService.info('pageSize: $_pageSize');
-    LoggerService.info('totalPages: $_totalPagesPDF');
-    if (response.containsKey('total')) {
-      LoggerService.info('total: ${response['total']}');
-    }
-    if (response.containsKey('totalCount')) {
-      LoggerService.info('totalCount: ${response['totalCount']}');
-    }
-    if (response.containsKey('hasNext')) {
-      LoggerService.info('hasNext: ${response['hasNext']}');
-    }
-    if (response.containsKey('hasPrevious')) {
-      LoggerService.info('hasPrevious: ${response['hasPrevious']}');
-    }
-    LoggerService.info('==========================');
-  }
-
   // Obtener todas las guías
-  Future<void> loadGuias(
-      {int? page, int? pageSize = 10, bool all = false}) async {
+  Future<void> loadGuias({bool all = false}) async {
     if (_isLoading) return;
 
     _setLoading(true);
     _setError(null);
 
     try {
-      final response = await _guiaService.getAllGuias(
-        page: page ?? _currentPagePDF,
-        pageSize: pageSize ?? _pageSize,
-        all: all,
-      );
+      final response = await _guiaService.getAllGuias(all: all);
 
       if (_validateResponse(response)) {
         final List<dynamic> data = response['data'] ?? [];
         _guias = data.map((json) => Guia.fromJson(json)).toList();
-        _processPaginationResponse(response);
       } else {
         _setError(response['message'] ?? 'Error al cargar las guías');
       }
@@ -124,8 +78,7 @@ class GuiaProvider extends ChangeNotifier {
   }
 
   // Obtener guías por ID de usuario
-  Future<void> loadGuiasByUsuario(String idUsuario,
-      {int? page, int? pageSize = 10, bool all = false}) async {
+  Future<void> loadGuiasByUsuario(String idUsuario, {bool all = false}) async {
     if (_isLoading) return;
     _idUsuario = idUsuario;
 
@@ -135,15 +88,12 @@ class GuiaProvider extends ChangeNotifier {
     try {
       final response = await _guiaService.getGuiasByUsuario(
         idUsuario: idUsuario,
-        page: page ?? _currentPagePDF,
-        pageSize: pageSize ?? _pageSize,
         all: all,
       );
 
       if (_validateResponse(response)) {
         final List<dynamic> data = response['data'] ?? [];
         _guias = data.map((json) => Guia.fromJson(json)).toList();
-        _processPaginationResponse(response);
       } else {
         _setError(
             response['message'] ?? 'Error al cargar las guías del usuario');

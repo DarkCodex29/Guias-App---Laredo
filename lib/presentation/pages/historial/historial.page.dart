@@ -4,10 +4,9 @@ import 'package:intl/intl.dart';
 import 'package:app_guias/presentation/controllers/historial/historial.controller.dart';
 import 'package:app_guias/core/constants/app.colors.dart';
 import 'package:app_guias/providers/auth.provider.dart';
-import 'package:app_guias/providers/guia.provider.dart';
 import 'package:app_guias/presentation/widgets/custom.card.dart';
-import 'package:app_guias/presentation/widgets/custom.pagination.controls.dart';
 import 'package:app_guias/presentation/widgets/custom.card.shimmer.dart';
+import 'package:app_guias/presentation/widgets/custom.textfield.dart';
 
 class HistorialPage extends StatelessWidget {
   const HistorialPage({super.key});
@@ -35,7 +34,6 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
   @override
   void initState() {
     super.initState();
-    // Inicializar el controlador después de que el contexto esté disponible
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_mounted) return;
       final controller = context.read<HistorialController>();
@@ -102,138 +100,132 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
 
   Widget _buildMobileLayout(
       HistorialController controller, BuildContext context, bool isAdmin) {
-    return TabBarView(
+    return Column(
       children: [
-        _buildTabContent(controller.archivosPdf, controller, context,
-            isPdf: true),
-        _buildTabContent(controller.archivosCsv, controller, context,
-            isPdf: false),
+        _buildSearchBar(controller, context),
+        Expanded(
+          child: TabBarView(
+            children: [
+              _buildTabContent(controller.filteredPdfFiles, controller, context,
+                  isPdf: true),
+              _buildTabContent(controller.filteredCsvFiles, controller, context,
+                  isPdf: false),
+            ],
+          ),
+        ),
       ],
     );
   }
 
   Widget _buildDesktopLayout(
       HistorialController controller, BuildContext context, bool isAdmin) {
-    return Row(
+    return Column(
       children: [
+        _buildSearchBar(controller, context),
         Expanded(
-          flex: 3,
-          child: TabBarView(
+          child: Row(
             children: [
-              // Solo mostrar la pestaña PDF en desktop
-              _buildTabContent(controller.archivosPdf, controller, context,
-                  isPdf: true),
+              Expanded(
+                flex: 3,
+                child: TabBarView(
+                  children: [
+                    _buildTabContent(
+                        controller.filteredPdfFiles, controller, context,
+                        isPdf: true),
+                  ],
+                ),
+              ),
+              Expanded(
+                flex: 1,
+                child: Container(
+                  color: AppColors.primary.withOpacity(0.05),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        Text(
+                          'Nota',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                        SizedBox(height: 16),
+                        Text(
+                          'Solo el administrador puede ver el historial de guías completo.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.black54,
+                          ),
+                        ),
+                        SizedBox(height: 16),
+                        Text(
+                          'En versión de escritorio solo se muestran los archivos PDF. Para ver los archivos CSV, acceda desde un dispositivo móvil.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.black54,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
-        Expanded(
-          flex: 1,
-          child: Container(
-            color: AppColors.primary.withOpacity(0.05),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text(
-                    'Nota',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    'Solo el administrador puede ver el historial de guías completo.',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.black54,
-                    ),
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    'En versión de escritorio solo se muestran los archivos PDF. Para ver los archivos CSV, acceda desde un dispositivo móvil.',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.black54,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
       ],
     );
   }
 
-  // Nuevo método para construir el contenido completo de cada tab, incluyendo la paginación
+  Widget _buildSearchBar(HistorialController controller, BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: CustomTextField(
+              label: '',
+              hint: 'Buscar guías (número, correlativo, usuario...)',
+              type: TextFieldType.search,
+              controller: controller.searchController,
+              actionIcon:
+                  controller.searchText.isNotEmpty ? Icons.clear : Icons.search,
+              onActionPressed: controller.searchText.isNotEmpty
+                  ? () => controller.clearFilters()
+                  : null,
+              onChanged: (value) => controller.searchGuias(value),
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTabContent(List<GuideFile> archivos,
       HistorialController controller, BuildContext context,
       {required bool isPdf}) {
-    final guiaProvider = context.watch<GuiaProvider>();
-
-    // Usar los valores específicos para cada tipo
-    final currentPage =
-        isPdf ? guiaProvider.currentPagePDF : guiaProvider.currentPageCSV;
-    final totalPages =
-        isPdf ? guiaProvider.totalPagesPDF : guiaProvider.totalPagesCSV;
     final isLoading =
         isPdf ? controller.isLoadingPagePDF : controller.isLoadingPageCSV;
 
-    return Stack(
-      children: [
-        // Lista de archivos (ahora ocupa todo el espacio)
-        _buildFileList(archivos, controller, context, isPdf: isPdf),
-
-        // Controles de paginación siempre visibles si hay más de una página
-        if (totalPages > 1)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: CustomPaginationControls(
-              currentPage: currentPage,
-              totalPages: totalPages,
-              isLoading: isLoading,
-              onFirstPage: () =>
-                  isPdf ? controller.goToPagePDF(1) : controller.goToPageCSV(1),
-              onPreviousPage: () => isPdf
-                  ? controller.previousPagePDF()
-                  : controller.previousPageCSV(),
-              onNextPage: () =>
-                  isPdf ? controller.nextPagePDF() : controller.nextPageCSV(),
-              onLastPage: () => isPdf
-                  ? controller.goToPagePDF(totalPages)
-                  : controller.goToPageCSV(totalPages),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildFileList(List<GuideFile> archivos,
-      HistorialController controller, BuildContext context,
-      {required bool isPdf}) {
-    final guiaProvider = context.watch<GuiaProvider>();
-    final authProvider = context.read<AuthProvider>();
-    final isAdmin = authProvider.role == 'ADMINISTRADOR';
-
-    // Usar los valores específicos para cada tipo
-    final currentPage =
-        isPdf ? guiaProvider.currentPagePDF : guiaProvider.currentPageCSV;
-    final totalPages =
-        isPdf ? guiaProvider.totalPagesPDF : guiaProvider.totalPagesCSV;
-    final isLoading =
-        isPdf ? controller.isLoadingPagePDF : controller.isLoadingPageCSV;
-
-    // Usar Shimmer para el estado de carga
     if (isLoading) {
       return CustomCardShimmer(
         isPdf: isPdf,
-        count: 5, // Mostrar 5 tarjetas de carga
+        count: 10,
       );
     }
 
@@ -243,11 +235,11 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
         onRefresh: () async {
           if (!mounted) return;
           return isPdf
-              ? controller.cargarArchivosPDF(isAdmin: isAdmin)
-              : controller.cargarArchivosCSV(isAdmin: isAdmin);
+              ? controller.cargarArchivosPDF(isAdmin: controller.isAdmin)
+              : controller.cargarArchivosCSV(isAdmin: controller.isAdmin);
         },
         child: ListView.builder(
-          padding: const EdgeInsets.only(bottom: 56),
+          padding: const EdgeInsets.only(bottom: 20),
           itemCount: 1,
           itemBuilder: (context, index) {
             return Center(
@@ -270,8 +262,10 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
                       label: const Text('Reintentar',
                           style: TextStyle(color: AppColors.white)),
                       onPressed: () => isPdf
-                          ? controller.cargarArchivosPDF(isAdmin: isAdmin)
-                          : controller.cargarArchivosCSV(isAdmin: isAdmin),
+                          ? controller.cargarArchivosPDF(
+                              isAdmin: controller.isAdmin)
+                          : controller.cargarArchivosCSV(
+                              isAdmin: controller.isAdmin),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                       ),
@@ -291,8 +285,8 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
         onRefresh: () async {
           if (!mounted) return;
           return isPdf
-              ? controller.cargarArchivosPDF(isAdmin: isAdmin)
-              : controller.cargarArchivosCSV(isAdmin: isAdmin);
+              ? controller.cargarArchivosPDF(isAdmin: controller.isAdmin)
+              : controller.cargarArchivosCSV(isAdmin: controller.isAdmin);
         },
         child: ListView.builder(
           padding: const EdgeInsets.only(bottom: 56),
@@ -309,13 +303,6 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
                     'No hay archivos ${isPdf ? 'PDF' : 'CSV'} en esta página',
                     style: const TextStyle(fontSize: 16),
                   ),
-                  if (totalPages > 1) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      'Página $currentPage de $totalPages',
-                      style: const TextStyle(fontSize: 14, color: Colors.grey),
-                    ),
-                  ],
                 ],
               ),
             );
@@ -330,8 +317,8 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
       onRefresh: () async {
         if (!mounted) return;
         return isPdf
-            ? controller.cargarArchivosPDF(isAdmin: isAdmin)
-            : controller.cargarArchivosCSV(isAdmin: isAdmin);
+            ? controller.cargarArchivosPDF(isAdmin: controller.isAdmin)
+            : controller.cargarArchivosCSV(isAdmin: controller.isAdmin);
       },
       child: ListView.builder(
         itemCount: archivos.length,
@@ -339,7 +326,7 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
           left: 16,
           right: 16,
           top: 8,
-          bottom: 72, // Espacio para la paginación
+          bottom: 72,
         ),
         itemBuilder: (context, index) {
           final archivo = archivos[index];
