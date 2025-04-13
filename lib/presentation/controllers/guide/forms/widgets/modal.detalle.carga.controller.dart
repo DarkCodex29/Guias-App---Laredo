@@ -88,14 +88,9 @@ class ModalDetalleCargaController extends ChangeNotifier {
 
   Future<void> _loadCampos() async {
     if (_campoProvider == null) return;
-
-    try {
-      await _campoProvider!.loadCampos();
-      _updateCamposSugeridos('');
-      notifyListeners();
-    } catch (e) {
-      // Manejar el error si es necesario
-    }
+    await _campoProvider!.loadCampos();
+    _updateCamposSugeridos('');
+    notifyListeners();
   }
 
   void _updateCamposSugeridos(String query) {
@@ -445,7 +440,7 @@ class ModalDetalleCargaController extends ChangeNotifier {
             .toList();
       }
     } catch (e) {
-      // Manejar el error si es necesario
+      debugPrint('Error al cargar jirones: $e');
     } finally {
       _isLoadingJirones = false;
       notifyListeners();

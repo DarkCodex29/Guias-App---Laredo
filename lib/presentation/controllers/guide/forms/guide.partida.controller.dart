@@ -149,7 +149,7 @@ class PartidaController extends ChangeNotifier {
   void _updateFieldProgress() {
     if (_flowController == null) return;
 
-    const totalFields = 4; // Total de campos requeridos
+    const totalFields = 4;
     int completedFields = 0;
 
     // Contar campos completos y sin errores

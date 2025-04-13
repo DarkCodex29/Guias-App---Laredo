@@ -16,17 +16,11 @@ class DetalleCargaController extends ChangeNotifier {
 
   DetalleCargaController({GuideFlowController? flowController}) {
     _flowController = flowController;
-    _setupListeners();
     loadDetalleCargas();
   }
 
   void setFlowController(GuideFlowController controller) {
     _flowController = controller;
-  }
-
-  void _setupListeners() {
-    // No necesitamos listeners aquí ya que el progreso se actualiza
-    // cuando se cargan los detalles o se eliminan
   }
 
   void _updateFieldProgress() {

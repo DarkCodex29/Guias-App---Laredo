@@ -537,7 +537,6 @@ class UsoInternoPage extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         CustomButton(
-          // Usar isLastAvailableStep en lugar de isLastStep
           text: isLastAvailableStep ? 'Finalizar' : 'Siguiente',
           progress: progress.toDouble(),
           isCompleted: isCompleted,
@@ -587,11 +586,8 @@ class UsoInternoPage extends StatelessWidget {
     if (isLastAvailableStep) {
       Navigator.pop(context);
     } else {
-      // Esto no debería ejecutarse si la lógica es correcta,
-      // pero lo dejamos por seguridad.
       final nextStep = flowController.getNextIncompleteStep();
       if (nextStep != null) {
-        // Ir al siguiente paso (aunque teóricamente no debería haber uno)
         flowController.goToStep(nextStep);
         LoggerService.warning(
             "Se navegó al paso $nextStep después de Uso Interno, revisar lógica.");

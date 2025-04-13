@@ -231,13 +231,49 @@ class HistorialController extends ChangeNotifier {
     }
   }
 
+  // Añadir función auxiliar para obtener el directorio de guías según la plataforma
+  Future<Directory> getGuiasDirectory() async {
+    try {
+      if (Platform.isAndroid) {
+        // En Android mantener la ruta original en Downloads
+        return Directory('/storage/emulated/0/Download/Guias');
+      } else if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+        // En escritorio, usar ApplicationDocuments
+        final appDocDir = await getApplicationDocumentsDirectory();
+        final guiasDir = Directory('${appDocDir.path}/Guias');
+        if (!await guiasDir.exists()) {
+          await guiasDir.create(recursive: true);
+        }
+        return guiasDir;
+      } else {
+        // Para otras plataformas, usar un directorio temporal
+        final tempDir = await getTemporaryDirectory();
+        final guiasDir = Directory('${tempDir.path}/Guias');
+        if (!await guiasDir.exists()) {
+          await guiasDir.create(recursive: true);
+        }
+        return guiasDir;
+      }
+    } catch (e) {
+      LoggerService.error('Error al obtener directorio de guías: $e');
+      // En caso de error, usar un directorio temporal como fallback
+      final tempDir = await getTemporaryDirectory();
+      final fallbackDir = Directory('${tempDir.path}/Guias');
+      if (!await fallbackDir.exists()) {
+        await fallbackDir.create(recursive: true);
+      }
+      return fallbackDir;
+    }
+  }
+
+  // Modificar el método _cargarArchivosCsvLocales
   // Método para cargar los archivos CSV locales (mantenemos esta funcionalidad)
   Future<void> _cargarArchivosCsvLocales() async {
     try {
-      final Directory directory =
-          Directory('/storage/emulated/0/Download/Guias');
+      final Directory directory = await getGuiasDirectory();
 
       if (!await directory.exists()) {
+        await directory.create(recursive: true);
         _archivosCsv = [];
         return;
       }
@@ -287,6 +323,7 @@ class HistorialController extends ChangeNotifier {
         }
       }
     } catch (e) {
+      LoggerService.error('Error al cargar archivos CSV: $e');
       _archivosCsv = [];
     }
   }
@@ -348,12 +385,10 @@ class HistorialController extends ChangeNotifier {
             'Guía ${guiaEncontrada.id} descargada (${bytes.lengthInBytes} bytes). Guardando en temporal...');
 
         try {
-          // --- USAR DIRECTORIO TEMPORAL DEL SISTEMA ---
+          // Usar el directorio temporal según la plataforma
           final Directory tempDir = await getTemporaryDirectory();
-          final String tempFilePath =
-              path.join(tempDir.path, archivo.fileName); // Usar path.join
+          final String tempFilePath = path.join(tempDir.path, archivo.fileName);
           final File tempFile = File(tempFilePath);
-          // ---------------------------------------------
 
           await tempFile.writeAsBytes(bytes);
           LoggerService.info('Archivo temporal guardado en: ${tempFile.path}');
@@ -368,17 +403,17 @@ class HistorialController extends ChangeNotifier {
             notifyListeners();
             return false;
           }
-        } catch (fileError, stackTrace) {
+        } catch (fileError) {
           _errorMessage =
               'Error al guardar o abrir el archivo temporal: $fileError';
-          LoggerService.error(_errorMessage, stackTrace);
+          LoggerService.error(_errorMessage);
           notifyListeners();
           return false;
         }
       }
-    } catch (e, stacktrace) {
+    } catch (e) {
       _errorMessage = 'Error general al intentar abrir el archivo: $e';
-      LoggerService.error(_errorMessage, stacktrace);
+      LoggerService.error(_errorMessage);
       notifyListeners();
       return false;
     }
@@ -573,7 +608,7 @@ class HistorialController extends ChangeNotifier {
 
     try {
       // Cargar archivos CSV locales
-      final directory = Directory('/storage/emulated/0/Download/Guias');
+      final directory = await getGuiasDirectory();
       if (!await directory.exists()) {
         await directory.create(recursive: true);
         _archivosCsv = [];
@@ -717,7 +752,8 @@ class HistorialController extends ChangeNotifier {
 
         try {
           // Guardar temporalmente para compartir
-          final tempDir = Directory('/storage/emulated/0/Download/Guias/temp');
+          final directory = await getGuiasDirectory();
+          final tempDir = Directory('${directory.path}/temp');
           if (!await tempDir.exists()) {
             await tempDir.create(recursive: true);
           }
@@ -787,7 +823,7 @@ class HistorialController extends ChangeNotifier {
 
     try {
       // Cargar archivos CSV locales
-      final directory = Directory('/storage/emulated/0/Download/Guias');
+      final directory = await getGuiasDirectory();
       if (!await directory.exists()) {
         await directory.create(recursive: true);
         _archivosCsv = [];

@@ -49,28 +49,10 @@ class TransporteController extends ChangeNotifier {
   void _setupListeners() {
     dni.addListener(() {
       _onFieldChanged('dni');
-      // Realizar búsqueda automática cuando el DNI tiene 8 dígitos
-      if (dni.text.length == 8) {
-        // Solo buscar si no estamos ya en proceso de búsqueda
-        if (!isLoadingDni && _flowController != null) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            // La búsqueda real se realizará cuando el TextField llame a onChanged en la página
-          });
-        }
-      }
     });
     licenciaConducir.addListener(() => _onFieldChanged('licenciaConducir'));
     placaController.addListener(() {
       _onFieldChanged('placa');
-      // Realizar búsqueda automática cuando la placa tiene 7 caracteres
-      if (placaController.text.length == 7) {
-        // Solo buscar si no estamos ya en proceso de búsqueda
-        if (!isLoadingPlaca && _flowController != null) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            // La búsqueda real se realizará cuando el TextField llame a onChanged en la página
-          });
-        }
-      }
     });
     nombresController.addListener(() => _onFieldChanged('nombres'));
     apellidosController.addListener(() => _onFieldChanged('apellidos'));

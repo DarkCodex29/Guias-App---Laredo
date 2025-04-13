@@ -205,7 +205,6 @@ class MotivoTrasladoPage extends StatelessWidget {
     );
   }
 
-  // Botones de navegación (para escritorio y móvil)
   Widget _buildNavigationButtons(BuildContext context,
       MotivoTrasladoController controller, GuideFlowController flowController) {
     final progress =

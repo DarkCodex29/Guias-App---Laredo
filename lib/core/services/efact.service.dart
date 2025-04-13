@@ -36,7 +36,7 @@ class EfactService {
   TokenResponse? _tokenResponse;
   final String _baseUrl;
 
-  // Basic Auth credentials from environment variables
+  // CREDENCIALES PARA EFACT
   String get _clientId => dotenv.env['EFACT_CLIENT_USERNAME'] ?? '';
   String get _clientSecret => dotenv.env['EFACT_CLIENT_PASSWORD'] ?? '';
   String get _basicAuth =>
@@ -45,7 +45,7 @@ class EfactService {
   EfactService() : _baseUrl = dotenv.env['EFACT_BASE_URL'] ?? '';
 
   // Obtener token de autorización
-  Future<TokenResponse> getToken() async {
+  Future<TokenResponse?> getToken() async {
     try {
       final username = dotenv.env['EFACT_USERNAME'];
       final password = dotenv.env['EFACT_PASSWORD'];
@@ -73,11 +73,28 @@ class EfactService {
 
       if (response.statusCode == 200 && response.data != null) {
         _tokenResponse = TokenResponse.fromJson(response.data);
-        return _tokenResponse!;
+        return _tokenResponse;
+      } else if (response.data != null &&
+          response.data is Map &&
+          response.data.containsKey('error')) {
+        final errorCode = response.data['error'] ?? 'unknown_error';
+        final errorMessage =
+            response.data['error_description'] ?? response.data['error'];
+        LoggerService.error('Error de autenticación EFACT: $errorMessage');
+        throw Exception('$errorMessage [Código: $errorCode]');
+      } else {
+        LoggerService.error(
+            'Error de respuesta EFACT: ${response.statusCode} - ${response.data}');
+        throw Exception(
+            'Error en el servicio de facturación [Código: ${response.statusCode}]');
       }
-      return _tokenResponse!;
     } catch (e) {
-      return _tokenResponse!;
+      if (e is Exception && e.toString().contains('[Código:')) {
+        rethrow;
+      }
+      LoggerService.error('Error al obtener token EFACT: $e');
+      throw Exception(
+          'No se pudo conectar con el servicio de facturación [Código: connection_error]');
     }
   }
 
@@ -85,25 +102,50 @@ class EfactService {
   Future<Map<String, dynamic>> processGuide(String filePath) async {
     try {
       LoggerService.info('INICIANDO PROCESAMIENTO DE GUÍA: $filePath');
-      _tokenResponse = await getToken();
 
-      // El archivo ya viene con extensión .csv desde la generación
+      try {
+        _tokenResponse = await getToken();
+        if (_tokenResponse == null) {
+          return {
+            'success': false,
+            'code': 'token_error',
+            'message': 'Error de autenticación con el servicio de facturación',
+            'pdfPath': '',
+          };
+        }
+      } catch (authError) {
+        String errorMessage =
+            authError.toString().replaceAll('Exception: ', '');
+        String errorCode = 'unknown_error';
+
+        final codeRegex = RegExp(r'\[Código: (.*?)\]');
+        final codeMatch = codeRegex.firstMatch(errorMessage);
+        if (codeMatch != null) {
+          errorCode = codeMatch.group(1) ?? 'unknown_error';
+          errorMessage =
+              errorMessage.replaceAll(codeMatch.group(0) ?? '', '').trim();
+        }
+
+        return {
+          'success': false,
+          'code': errorCode,
+          'message': errorMessage,
+          'pdfPath': '',
+        };
+      }
+
       final ticket = await sendDocument(filePath);
 
       if (ticket.isEmpty) {
         LoggerService.error('NO SE OBTUVO TICKET DE ENVÍO. PROCESO CANCELADO.');
         return {
           'success': false,
-          'code': 'E003',
+          'code': 'document_error',
           'message': 'No se obtuvo ticket de envío',
           'pdfPath': '',
         };
       }
 
-      LoggerService.info(
-          'TICKET OBTENIDO: $ticket. ESPERANDO PARA CONSULTAR CDR...');
-
-      // Ya no es necesario esperar, consultar CDR inmediatamente
       final cdrResponse = await getCdr(ticket);
 
       if (!cdrResponse['success']) {
@@ -123,7 +165,6 @@ class EfactService {
       LoggerService.info('CDR VERIFICADO CORRECTAMENTE. OBTENIENDO PDF...');
       await Future.delayed(const Duration(seconds: 2));
 
-      // Obtener el nombre base del archivo CSV para usarlo en el PDF
       final String nombreBaseArchivo = filePath.endsWith('.csv')
           ? filePath.substring(0, filePath.length - 4)
           : filePath;
@@ -134,7 +175,7 @@ class EfactService {
         LoggerService.error('NO SE PUDO GENERAR EL PDF.');
         return {
           'success': false,
-          'code': 'E004',
+          'code': 'pdf_error',
           'message': 'No se pudo generar el PDF',
           'pdfPath': '',
         };
@@ -152,7 +193,7 @@ class EfactService {
       LoggerService.error('ERROR EN PROCESAMIENTO DE GUÍA: $e');
       return {
         'success': false,
-        'code': 'E999',
+        'code': 'process_error',
         'message': 'Error en procesamiento de guía: $e',
         'pdfPath': '',
       };
@@ -197,7 +238,6 @@ class EfactService {
 
       LoggerService.info('RESPUESTA DOCUMENTO: ${response.data}');
 
-      // Verificar si la respuesta contiene el código y descripción esperados
       if (response.statusCode == 200 && response.data != null) {
         final responseCode = response.data['code'];
         final responseDesc = response.data['description'];
@@ -205,15 +245,12 @@ class EfactService {
         if (responseCode != null) {
           LoggerService.info('CÓDIGO DE RESPUESTA: $responseCode');
 
-          // Si el código no es 0, hay un error
           if (responseCode != 0 && responseCode != '0') {
             LoggerService.error(
                 'ERROR EN EL ENVÍO DEL DOCUMENTO: [Código: $responseCode] $responseDesc');
             return '';
           }
         }
-
-        // Devolver la descripción (que contiene el ticket) si es exitoso
         return responseDesc ?? '';
       }
 
@@ -231,7 +268,7 @@ class EfactService {
         LoggerService.error('ERROR: TICKET VACÍO EN LA SOLICITUD DE CDR');
         return {
           'success': false,
-          'code': 'E001',
+          'code': 'empty_ticket',
           'message': 'Ticket vacío en la solicitud'
         };
       }
@@ -304,7 +341,7 @@ class EfactService {
               'CDR NO DISPONIBLE DESPUÉS DE $maxIntentos INTENTOS. CÓDIGO: ${response.statusCode}');
           return {
             'success': false,
-            'code': 'E002',
+            'code': 'cdr_timeout',
             'message': 'CDR no disponible después de $maxIntentos intentos'
           };
         } else {
@@ -319,10 +356,18 @@ class EfactService {
       }
 
       // Nunca debería llegar aquí, pero por si acaso
-      return {'success': false, 'code': 'E999', 'message': 'Error inesperado'};
+      return {
+        'success': false,
+        'code': 'unexpected_error',
+        'message': 'Error inesperado'
+      };
     } catch (e) {
       LoggerService.error('EXCEPCIÓN AL OBTENER CDR: $e');
-      return {'success': false, 'code': 'E999', 'message': 'Excepción: $e'};
+      return {
+        'success': false,
+        'code': 'cdr_exception',
+        'message': 'Excepción: $e'
+      };
     }
   }
 

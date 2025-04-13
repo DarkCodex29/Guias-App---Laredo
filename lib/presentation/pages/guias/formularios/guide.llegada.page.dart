@@ -35,7 +35,6 @@ class LlegadaPage extends StatelessWidget {
       body: isDesktop
           ? _buildDesktopLayout(context, controller, flowController)
           : _buildMobileLayout(context, controller, flowController),
-      // Mostrar BottomNavigationBar solo en móvil
       bottomNavigationBar: isDesktop
           ? null
           : _buildMobileBottomNavigationBar(
@@ -251,19 +250,15 @@ class LlegadaPage extends StatelessWidget {
     return buttonColumn;
   }
 
-  // Barra inferior solo para móvil - Replicar estilo de DestinatarioPage
   Widget _buildMobileBottomNavigationBar(BuildContext context,
       LlegadaController controller, GuideFlowController flowController) {
-    // Devolver un Container con padding y la columna de botones
     return Container(
       padding: const EdgeInsets.all(24.0),
       color: Colors.white,
-      // Llamar a _buildNavigationButtons que devuelve la Column
       child: _buildNavigationButtons(context, controller, flowController),
     );
   }
 
-  // Lógica del botón Siguiente (Reescrita limpiamente)
   void _onNextButtonPressed(BuildContext context, LlegadaController controller,
       GuideFlowController flowController) {
     if (!controller.isFormValid()) {

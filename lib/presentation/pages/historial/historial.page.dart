@@ -279,7 +279,6 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
       );
     }
 
-    // Si no hay archivos y no está cargando, mostrar mensaje de "No hay archivos"
     if (archivos.isEmpty && !isLoading) {
       return RefreshIndicator(
         onRefresh: () async {

@@ -96,12 +96,10 @@ class DestinatarioPage extends StatelessWidget {
           flex: 3,
           child: Padding(
             padding: const EdgeInsets.all(32.0),
-            // Usar Column para poner botones debajo del formulario scrollable
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch, // Estirar botones
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Expanded(
-                  // Hacer que el formulario ocupe el espacio disponible
                   child: SingleChildScrollView(
                     child: ListenableBuilder(
                       listenable: controller,
@@ -111,7 +109,7 @@ class DestinatarioPage extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 24), // Espacio antes de los botones
+                const SizedBox(height: 24),
                 CustomButton(
                   text: 'Siguiente',
                   isCompleted: isCompleted,
@@ -152,26 +150,26 @@ class DestinatarioPage extends StatelessWidget {
         Text(
           'Información del Destinatario',
           style: TextStyle(
-            fontSize: 22, // Tamaño de fuente aumentado
+            fontSize: 22,
             fontWeight: FontWeight.bold,
             color: AppColors.primary,
           ),
         ),
-        SizedBox(height: 24), // Mayor espaciado
+        SizedBox(height: 24),
         Text(
           'Ingrese los datos de la persona o empresa que recibirá la mercancía.',
           style: TextStyle(
               fontSize: 15,
               color: Colors.black87,
-              height: 1.4), // Texto más legible
+              height: 1.4),
         ),
         SizedBox(height: 24),
-        Divider(thickness: 1), // Divisor más grueso
+        Divider(thickness: 1),
         SizedBox(height: 24),
         Text(
           'Campos Requeridos:',
           style: TextStyle(
-              fontSize: 18, fontWeight: FontWeight.w600), // Estilo ajustado
+              fontSize: 18, fontWeight: FontWeight.w600),
         ),
         SizedBox(height: 16),
         Padding(
@@ -179,7 +177,7 @@ class DestinatarioPage extends StatelessWidget {
           child: Text(
             '• Razón Social: Nombre completo o denominación social de la empresa destinataria.',
             style: TextStyle(
-                fontSize: 14, height: 1.5), // Altura de línea mejorada
+                fontSize: 14, height: 1.5),
           ),
         ),
         SizedBox(height: 12),
@@ -218,7 +216,6 @@ class DestinatarioPage extends StatelessWidget {
     );
   }
 
-  // Lógica extraída del botón Siguiente para reutilizar
   void _onNextButtonPressed(BuildContext context,
       DestinatarioController controller, GuideFlowController flowController) {
     if (!controller.isFormValid()) {
@@ -279,7 +276,6 @@ class DestinatarioPage extends StatelessWidget {
         flowController.getStepCompletionPercentage(GuideStep.destinatario);
     final isCompleted = flowController.isStepCompleted(GuideStep.destinatario);
 
-    // Contenido de los botones (la columna)
     Widget buttonColumn = Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -299,7 +295,6 @@ class DestinatarioPage extends StatelessWidget {
       ],
     );
 
-    // Aplicar padding estándar para móvil
     return Container(
       padding: const EdgeInsets.all(24.0),
       color: Colors.white,

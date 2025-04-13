@@ -448,181 +448,49 @@ class GuiaService {
     }
   }
 
-  // Obtener última guía para extraer el correlativo
-  Future<Map<String, dynamic>> getLastGuia() async {
+  // Método para obtener el correlativo directamente desde el backend
+  Future<Map<String, dynamic>> getCorrelativo() async {
     try {
-      LoggerService.info(
-          '-------- INICIO: Consultando última guía para obtener correlativo --------');
+      LoggerService.info('Obteniendo correlativo desde el servicio...');
 
-      // Verificar token antes de consultar
-      if (_dio.options.headers['Authorization'] == null ||
-          (_dio.options.headers['Authorization'] as String).isEmpty) {
-        LoggerService.error('No hay token de autorización configurado');
-        return {
-          'success': false,
-          'message': 'Error de autenticación: No hay token configurado',
-        };
-      }
+      final response = await _dio.get(ApiEndpoints.guiaCorrelativo);
 
-      // Realizar petición exactamente como se muestra en el ejemplo curl
-      LoggerService.info(
-          'Enviando petición GET a: ${ApiEndpoints.guias} con parámetros: page=1, pageSize=1, all=false');
-      final response = await _dio.get(
-        ApiEndpoints.guias,
-        queryParameters: {
-          'page': 1,
-          'pageSize': 1,
-          'all': false,
-        },
-      );
-
-      LoggerService.info('Respuesta status: ${response.statusCode}');
-      LoggerService.info('Respuesta headers: ${response.headers}');
-      LoggerService.info('Respuesta data: ${response.data}');
-
-      // Verificar respuesta según el formato del ejemplo
       if (response.statusCode == 200 && response.data != null) {
-        // Verificar que tenemos el campo data
-        if (!response.data.containsKey('data')) {
-          LoggerService.warning(
-              'Respuesta no contiene el campo data: ${response.data}');
-          return {
-            'success': false,
-            'message': 'Formato de respuesta inválido',
-          };
-        }
+        final correlativo = response.data['correlativo'];
+        LoggerService.info('Correlativo obtenido con éxito: $correlativo');
 
-        // Verificar que data es un array con al menos un elemento
-        final List<dynamic> data = response.data['data'] ?? [];
-        if (data.isEmpty) {
-          LoggerService.warning('No se encontraron guías en el servidor');
-          return {
-            'success': false,
-            'message': 'No se encontraron guías en el servidor',
-          };
-        }
-
-        // Obtener la primera guía (la más reciente según el orden)
-        final Map<String, dynamic> lastGuia = data[0];
-        LoggerService.info('Primera guía en la respuesta: $lastGuia');
-
-        // Verificar que tiene el campo nombre
-        if (!lastGuia.containsKey('nombre') || lastGuia['nombre'] == null) {
-          LoggerService.warning('La guía no tiene nombre: $lastGuia');
-          return {
-            'success': false,
-            'message': 'La guía no tiene un nombre válido',
-          };
-        }
-
-        // Obtener el nombre y extraer el correlativo
-        final String nombreGuia = lastGuia['nombre'].toString();
-        LoggerService.info('Última guía obtenida - Nombre: $nombreGuia');
-
-        // Primero intentamos con el patrón completo como en el ejemplo: 20132377783-09-T002-00000695.pdf
-        final RegExp fullRegExp = RegExp(r'\d+-\d+-([A-Z]\d{3})-(\d{8})');
-        final fullMatch = fullRegExp.firstMatch(nombreGuia);
-        LoggerService.info(
-            'Intentando extraer con patrón completo: $fullRegExp');
-
-        if (fullMatch != null && fullMatch.groupCount >= 2) {
-          final serie = fullMatch.group(1) ?? '';
-          final correlativoStr = fullMatch.group(2) ?? '';
-          final correlativoNum = int.tryParse(correlativoStr) ?? 0;
-
-          LoggerService.info(
-              'ÉXITO! Correlativo extraído del nombre completo: $correlativoStr (Serie: $serie, Valor numérico: $correlativoNum)');
-          LoggerService.info(
-              '-------- FIN: Correlativo obtenido con éxito --------');
-
+        // Extraer la serie y el número del correlativo
+        final parts = correlativo.split('-');
+        if (parts.length >= 2) {
+          final serie = parts[0];
+          final numero = parts[1];
           return {
             'success': true,
             'data': {
-              'nombre': nombreGuia,
+              'correlativo': correlativo,
               'serie': serie,
-              'correlativo': correlativoStr,
-              'correlativoNum': correlativoNum,
-              'guiaCompleta': lastGuia,
-            },
+              'numero': numero
+            }
           };
-        }
-
-        // Si el anterior no funciona, intentamos con un patrón más simple
-        LoggerService.info(
-            'Patrón completo falló, intentando con patrón simple...');
-        final RegExp regExp = RegExp(r'([A-Z]\d{3})-(\d{8})');
-        final match = regExp.firstMatch(nombreGuia);
-        LoggerService.info('Intentando extraer con patrón simple: $regExp');
-
-        if (match != null && match.groupCount >= 2) {
-          final serie = match.group(1) ?? '';
-          final correlativoStr = match.group(2) ?? '';
-          final correlativoNum = int.tryParse(correlativoStr) ?? 0;
-
-          LoggerService.info(
-              'ÉXITO! Correlativo extraído del patrón simple: $correlativoStr (Serie: $serie, Valor numérico: $correlativoNum)');
-          LoggerService.info(
-              '-------- FIN: Correlativo obtenido con éxito --------');
-
+        } else {
           return {
             'success': true,
-            'data': {
-              'nombre': nombreGuia,
-              'serie': serie,
-              'correlativo': correlativoStr,
-              'correlativoNum': correlativoNum,
-              'guiaCompleta': lastGuia,
-            },
+            'data': {'correlativo': correlativo}
           };
         }
-
-        // Si no se pudo extraer con ninguno de los patrones, registramos el error
-        LoggerService.warning(
-            'FALLO! No se pudo extraer el correlativo del nombre: $nombreGuia');
-        LoggerService.info(
-            '-------- FIN: No se pudo extraer el correlativo --------');
-        return {
-          'success': false,
-          'message':
-              'No se pudo extraer el correlativo del nombre: $nombreGuia',
-        };
       }
 
-      // Si la respuesta no es 200 o no tiene el formato esperado
-      LoggerService.warning(
-          'Respuesta no válida del servidor: ${response.statusCode} - ${response.data}');
-      LoggerService.info('-------- FIN: Respuesta no válida --------');
       return {
         'success': false,
-        'message': response.data?['message'] ??
-            'Error al obtener la última guía (${response.statusCode})',
-      };
-    } on DioException catch (e) {
-      String errorMessage;
-      if (e.type == DioExceptionType.connectionTimeout) {
-        errorMessage = 'Tiempo de espera agotado';
-      } else if (e.type == DioExceptionType.connectionError) {
-        errorMessage = 'No se pudo conectar al servidor';
-      } else {
-        errorMessage = 'Error de conexión: ${e.message}';
-        if (e.response != null) {
-          errorMessage += ' (Status: ${e.response?.statusCode})';
-        }
-      }
-
-      LoggerService.error('Error Dio al obtener última guía: $errorMessage');
-      LoggerService.error('Detalles de la excepción: $e');
-      LoggerService.info('-------- FIN: Error de red --------');
-      return {
-        'success': false,
-        'message': errorMessage,
+        'message':
+            response.data?['message'] ?? 'Error al obtener el correlativo'
       };
     } catch (e) {
-      LoggerService.error('Error inesperado al obtener última guía: $e');
-      LoggerService.info('-------- FIN: Error inesperado --------');
+      LoggerService.error('Error al obtener correlativo: ${e.toString()}');
       return {
         'success': false,
-        'message': 'Error inesperado al obtener la última guía: $e',
+        'message':
+            'Error de conexión al obtener el correlativo: ${e.toString()}'
       };
     }
   }

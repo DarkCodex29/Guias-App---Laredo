@@ -45,9 +45,6 @@ class MotivoTrasladoController extends ChangeNotifier {
 
   MotivoTrasladoController({GuideFlowController? flowController}) {
     _flowController = flowController;
-
-    // No establecer valores por defecto al crear el controlador
-    // Solo configurar los listeners
     _setupListeners();
   }
 
@@ -61,7 +58,6 @@ class MotivoTrasladoController extends ChangeNotifier {
   void _setupListeners() {
     modalidadTraslado.addListener(() {
       _onFieldChanged('modalidadTraslado');
-      // Notificar al flowController del cambio de modalidad para actualizar la UI
       if (_flowController != null) {
         _flowController!.notifyListeners();
       }

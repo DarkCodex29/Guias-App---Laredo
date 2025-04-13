@@ -1,5 +1,4 @@
 import 'package:app_guias/core/constants/app.colors.dart';
-import 'package:app_guias/core/models/company.dart';
 import 'package:app_guias/core/models/detalle.carga.dart';
 import 'package:app_guias/models/ubigeo.dart';
 import 'package:app_guias/services/firebase.service.dart';
@@ -78,7 +77,6 @@ void main() async {
     LoggerService.info('Hive inicializado en: ${appDocumentDir.path}');
 
     // Registrar adaptadores
-    Hive.registerAdapter(CompanyAdapter());
     Hive.registerAdapter(DetalleCargaAdapter());
     Hive.registerAdapter(DepartamentoModelAdapter());
     Hive.registerAdapter(ProvinciaModelAdapter());
@@ -91,7 +89,6 @@ void main() async {
     LoggerService.info('Firebase Service inicializado');
 
     // Abrir boxes de Hive
-    await Hive.openBox<Company>('company');
     await Hive.openBox<DetalleCarga>('detalle_carga');
     await Hive.openBox<DepartamentoModel>('departamentos');
     await Hive.openBox<ProvinciaModel>('provincias');

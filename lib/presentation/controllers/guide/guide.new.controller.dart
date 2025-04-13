@@ -20,7 +20,6 @@ class NewGuideController extends ChangeNotifier {
   bool _isInitialized = false;
   String _csvPath = '';
   String _pdfPath = '';
-  final String _serieFormat = 'T002';
   bool _isLoading = false;
   String _error = '';
 
@@ -50,7 +49,7 @@ class NewGuideController extends ChangeNotifier {
     }
   }
 
-  // Generar el siguiente correlativo a partir del último obtenido del servidor
+  // Obtener el correlativo directamente del servicio
   Future<String> _getNextCorrelativo(BuildContext context) async {
     try {
       LoggerService.info(
@@ -60,32 +59,24 @@ class NewGuideController extends ChangeNotifier {
       final guiaProvider = Provider.of<GuiaProvider>(context, listen: false);
       LoggerService.info('Provider GuiaProvider obtenido correctamente');
 
-      // Obtener información de la última guía
-      LoggerService.info('Solicitando último correlativo al servidor...');
-      final int serverCorrelativo = await guiaProvider.getLastCorrelativo();
-      LoggerService.info(
-          'Correlativo recibido del servidor: $serverCorrelativo');
+      // Obtener el correlativo directamente del servicio
+      LoggerService.info('Solicitando correlativo al servicio...');
+      final String? correlativo =
+          await guiaProvider.getCorrelativoFromService();
 
-      // Verificar si se obtuvo un correlativo válido
-      if (serverCorrelativo > 0) {
-        // Incrementar para obtener el siguiente
-        int nextCorrelativo = serverCorrelativo + 1;
-        String formattedCorrelativo =
-            '$_serieFormat-${nextCorrelativo.toString().padLeft(8, '0')}';
-
+      if (correlativo != null && correlativo.isNotEmpty) {
         LoggerService.info(
-            'ÉXITO: Generando nuevo correlativo: $formattedCorrelativo (anterior: $_serieFormat-${serverCorrelativo.toString().padLeft(8, '0')})');
+            'ÉXITO: Correlativo obtenido del servicio: $correlativo');
         LoggerService.info(
             '-------- FIN OBTENCIÓN DE CORRELATIVO: ÉXITO --------');
-
-        return formattedCorrelativo;
+        return correlativo;
       } else {
         LoggerService.error(
-            'Correlativo no válido obtenido del servidor: $serverCorrelativo');
+            'No se pudo obtener un correlativo válido del servicio');
         LoggerService.info(
             '-------- FIN OBTENCIÓN DE CORRELATIVO: ERROR --------');
         throw Exception(
-            'Correlativo no válido obtenido del servidor: $serverCorrelativo');
+            'No se pudo obtener un correlativo válido del servicio');
       }
     } catch (e) {
       // En caso de error, no usamos valores por defecto sino que lanzamos una excepción
@@ -254,12 +245,27 @@ class NewGuideController extends ChangeNotifier {
 
           throw Exception('$message [Código: $code]');
         }
-      } catch (correlativoError) {
-        // Manejar específicamente errores del correlativo
-        LoggerService.error(
-            'Error crítico con el correlativo: $correlativoError');
-        throw Exception(
-            'No se pudo generar la guía porque no se pudo obtener un correlativo válido del servidor. Por favor, verifique su conexión e inténtelo nuevamente.');
+      } catch (e) {
+        // Revisamos si es un error de autenticación de EFACT
+        if (e.toString().toLowerCase().contains('autenticación') ||
+            e.toString().toLowerCase().contains('authentication') ||
+            e.toString().contains('contrase')) {
+          LoggerService.error('Error de autenticación EFACT: $e');
+
+          // Mostrar el mensaje de error original sin procesar
+          throw Exception(e.toString().replaceAll('Exception: ', ''));
+        }
+        // Revisamos si es un error específico de correlativo
+        else if (e.toString().toLowerCase().contains('correlativo')) {
+          LoggerService.error('Error crítico con el correlativo: $e');
+          throw Exception(
+              'No se pudo generar la guía porque no se pudo obtener un correlativo válido del servidor. Por favor, verifique su conexión e inténtelo nuevamente.');
+        }
+        // Para otros tipos de error
+        else {
+          LoggerService.error('Error en procesamiento de guía: $e');
+          throw Exception('Error en procesamiento de guía: $e');
+        }
       }
 
       notifyListeners();
@@ -311,22 +317,34 @@ class NewGuideController extends ChangeNotifier {
 
       // Mostrar error usando ResultadoModal
       if (context.mounted) {
-        List<Widget> details = [
-          const SizedBox(height: 8),
-          Text(
-            'Detalle del error:\n$errorMessage',
-            style: const TextStyle(fontSize: 14),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Puede intentar nuevamente o revisar los datos ingresados.',
-            style: TextStyle(fontSize: 14),
-          ),
-        ];
+        List<Widget> details = [];
 
         if (errorCode != null) {
-          details.insert(0, Text('Código de error: $errorCode'));
+          details.add(Text('Código de error: $errorCode'));
+          details.add(const SizedBox(height: 8));
         }
+
+        details.add(Text('Detalle del error:'));
+
+        // Simplificación del mensaje de error para mostrar directamente el del servicio
+        String cleanError = errorMessage.replaceAll('Exception: ', '');
+
+        // Eliminar la parte del código para no duplicarlo en la UI
+        if (errorCode != null) {
+          final codePattern = RegExp(r'\[Código: .*?\]');
+          cleanError = cleanError.replaceAll(codePattern, '').trim();
+        }
+
+        details.add(Text(
+          cleanError,
+          style: const TextStyle(fontSize: 14),
+        ));
+
+        details.add(const SizedBox(height: 8));
+        details.add(const Text(
+          'Puede intentar nuevamente o revisar los datos ingresados.',
+          style: TextStyle(fontSize: 14),
+        ));
 
         ResultadoModal.showError(
           context,
@@ -505,6 +523,27 @@ class NewGuideController extends ChangeNotifier {
           backgroundColor: Colors.green,
         ),
       );
+    }
+  }
+
+  Future<void> initInformation() async {
+    try {
+      LoggerService.info('NewGuideController: Inicializando información...');
+      setLoading(true);
+
+      // Obtener el correlativo directamente del servicio
+      if (navigatorKey.currentContext != null) {
+        await _getNextCorrelativo(navigatorKey.currentContext!);
+      } else {
+        LoggerService.warning(
+            'No hay contexto disponible para obtener el correlativo');
+      }
+
+      // ... existing code ...
+    } catch (e) {
+      setError('Error al inicializar: ${e.toString()}');
+    } finally {
+      setLoading(false);
     }
   }
 }

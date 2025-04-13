@@ -277,80 +277,40 @@ class GuiaProvider extends ChangeNotifier {
     }
   }
 
-  // Obtener el último correlativo del servidor
-  Future<int> getLastCorrelativo() async {
-    if (_isLoading) return 0;
-
-    _setLoading(true);
-    _setError(null);
-
-    try {
-      LoggerService.info('Provider: Iniciando getLastCorrelativo()');
-      final response = await _guiaService.getLastGuia();
-      LoggerService.info(
-          'Provider: Respuesta recibida de getLastGuia(): success=${response['success']}');
-
-      if (_validateResponse(response)) {
-        final data = response['data'];
-        LoggerService.info('Provider: Datos obtenidos: $data');
-
-        if (data != null && data.containsKey('correlativoNum')) {
-          final int correlativoNum = data['correlativoNum'] ?? 0;
-          LoggerService.info(
-              'Provider: Correlativo numérico extraído: $correlativoNum');
-          return correlativoNum;
-        } else {
-          LoggerService.error(
-              'Provider: No se encontró el campo correlativoNum en los datos');
-          _setError(
-              'Error al obtener el último correlativo: formato incorrecto');
-          // Si estamos obteniendo 0, usar 695 como valor predeterminado para desarrollo
-          return 695; // ¡VALOR TEMPORAL SOLO PARA PRUEBAS!
-        }
-      } else {
-        final errorMsg =
-            response['message'] ?? 'Error al obtener el último correlativo';
-        LoggerService.error('Provider: Error al validar respuesta: $errorMsg');
-        _setError(errorMsg);
-        // Si estamos obteniendo 0, usar 695 como valor predeterminado para desarrollo
-        return 695; // ¡VALOR TEMPORAL SOLO PARA PRUEBAS!
-      }
-    } catch (e) {
-      LoggerService.error(
-          'Provider: Excepción en getLastCorrelativo(): ${e.toString()}');
-      _setError('Error de conexión: ${e.toString()}');
-      // Si estamos obteniendo 0, usar 695 como valor predeterminado para desarrollo
-      return 695; // ¡VALOR TEMPORAL SOLO PARA PRUEBAS!
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  // Obtener la información del último correlativo desde el servidor
-  Future<Map<String, dynamic>?> getLastCorrelativoInfo() async {
+  // Obtener el correlativo directamente del servicio
+  Future<String?> getCorrelativoFromService() async {
     if (_isLoading) return null;
 
     _setLoading(true);
     _setError(null);
 
     try {
-      LoggerService.info(
-          'Obteniendo información del último correlativo del servidor');
-      final response = await _guiaService.getLastGuia();
+      LoggerService.info('Provider: Obteniendo correlativo del servicio');
+      final response = await _guiaService.getCorrelativo();
 
       if (_validateResponse(response)) {
-        LoggerService.info(
-            'Correlativo obtenido correctamente: ${response['data']}');
-        return response['data'];
+        final data = response['data'];
+        if (data != null && data.containsKey('correlativo')) {
+          final String correlativo = data['correlativo'];
+          LoggerService.info('Provider: Correlativo obtenido: $correlativo');
+          return correlativo;
+        } else {
+          LoggerService.error(
+              'Provider: No se encontró el correlativo en los datos');
+          _setError('Error al obtener el correlativo: formato incorrecto');
+          return null;
+        }
       } else {
-        final errorMsg = response['message'] ??
-            'Error al obtener información del último correlativo';
-        LoggerService.error('Error al obtener correlativo: $errorMsg');
+        final errorMsg =
+            response['message'] ?? 'Error al obtener el correlativo';
+        LoggerService.error(
+            'Provider: Error al obtener correlativo: $errorMsg');
         _setError(errorMsg);
         return null;
       }
     } catch (e) {
-      LoggerService.error('Excepción al obtener correlativo: ${e.toString()}');
+      LoggerService.error(
+          'Provider: Excepción al obtener correlativo: ${e.toString()}');
       _setError('Error de conexión: ${e.toString()}');
       return null;
     } finally {

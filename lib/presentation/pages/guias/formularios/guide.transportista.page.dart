@@ -162,7 +162,6 @@ class TransportistaPage extends StatelessWidget {
           },
         ),
         const SizedBox(height: 16),
-        // Mensaje de error/info para RUC
         _buildRucMessage(controller),
         const SizedBox(height: 16),
         CustomTextField(
@@ -170,10 +169,6 @@ class TransportistaPage extends StatelessWidget {
           hint: 'Nombre/Razón Social del transportista',
           controller: controller.nombreController,
           errorText: controller.getError('nombre'),
-          onChanged: (_) => {},
-          // Si queremos que se pueda editar manualmente aunque se encuentre el RUC,
-          // necesitaríamos una lógica similar a la de nombresEditables en Transporte
-          // enabled: controller.nombreEditable ?? true,
         ),
       ],
     );
@@ -191,7 +186,6 @@ class TransportistaPage extends StatelessWidget {
     } else if (controller.rucController.text.length == 11 &&
         controller.nombreController.text.isNotEmpty &&
         !controller.isLoading) {
-      // Mensaje de éxito si se encontró
       return _buildMessageContainer(
           message: 'Transportista encontrado', isError: false);
     }
@@ -204,7 +198,6 @@ class TransportistaPage extends StatelessWidget {
     final icon = isError ? Icons.error_outline : Icons.check_circle_outline;
 
     return Container(
-      // margin: const EdgeInsets.only(top: 8, bottom: 8), // Quitar margen superior
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -335,8 +328,7 @@ class TransportistaPage extends StatelessWidget {
           page = const DetailPage();
           break;
         case GuideStep.transportista:
-          page =
-              const TransportistaPage(); // No debería pasar aquí, pero por si acaso
+          page = const TransportistaPage();
           break;
         case GuideStep.usoInterno:
           page = const UsoInternoPage();

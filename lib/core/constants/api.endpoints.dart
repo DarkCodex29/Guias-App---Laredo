@@ -30,6 +30,7 @@ class ApiEndpoints {
   static const String guias = '/api/guias';
   static const String guiaById = '/api/guias/{id}';
   static const String guiasByUsuario = '/api/guias/usuario/{idUsuario}';
+  static const String guiaCorrelativo = '/api/guias/correlativo';
 
   // Jirones
   static const String jirones = '/api/jirones';
