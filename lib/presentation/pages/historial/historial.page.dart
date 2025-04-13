@@ -67,13 +67,7 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
           backgroundColor: AppColors.primary,
           foregroundColor: AppColors.white,
           elevation: 1,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: () => controller.cargarArchivos(isAdmin: isAdmin),
-              tooltip: 'Actualizar',
-            ),
-          ],
+          actions: [],
           bottom: TabBar(
             tabs: [
               const Tab(
@@ -94,6 +88,12 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
         body: isDesktop
             ? _buildDesktopLayout(controller, context, isAdmin)
             : _buildMobileLayout(controller, context, isAdmin),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () => controller.cargarArchivos(isAdmin: isAdmin),
+          backgroundColor: AppColors.primary,
+          tooltip: 'Actualizar',
+          child: const Icon(Icons.refresh, color: Colors.white),
+        ),
       ),
     );
   }
@@ -199,7 +199,7 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
           Expanded(
             child: CustomTextField(
               label: '',
-              hint: 'Buscar guías (número, correlativo, usuario...)',
+              hint: 'Buscar guías (número o correlativo)',
               type: TextFieldType.search,
               controller: controller.searchController,
               actionIcon:
@@ -330,6 +330,12 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
         itemBuilder: (context, index) {
           final archivo = archivos[index];
 
+          // Verificar si el archivo es local
+          final bool isLocal = isPdf &&
+              archivo.fullPath.isNotEmpty &&
+              controller.archivosPdfLocales
+                  .any((local) => local.fullPath == archivo.fullPath);
+
           // Extraer correlativo del nombre
           String? correlativo;
 
@@ -375,7 +381,33 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
               ),
             ),
 
-            // Usuario (solo para PDF)
+            // Etiqueta "Archivo Local" para archivos locales
+            if (isLocal)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text(
+                        'Archivo Local',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            // Usuario (solo para PDF del servidor)
             if (isPdf && archivo.usernameUsuario != null)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
@@ -396,8 +428,51 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
               ),
           ];
 
-          // Iconos para compartir y abrir
+          // Iconos para compartir y subir (si es local)
           final List<Widget> actions = [
+            // Botón para subir al servidor (solo para archivos locales)
+            if (isLocal)
+              IconButton(
+                icon: controller.isSharingFile(archivo)
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(AppColors.primary),
+                        ),
+                      )
+                    : const Icon(Icons.cloud_upload, color: AppColors.primary),
+                onPressed: controller.isSharingFile(archivo)
+                    ? null
+                    : () async {
+                        final scaffoldMessenger = ScaffoldMessenger.of(context);
+                        final success =
+                            await controller.subirArchivoLocal(archivo);
+
+                        if (!mounted) return;
+
+                        if (success) {
+                          scaffoldMessenger.showSnackBar(
+                            const SnackBar(
+                              content: Text('Archivo subido exitosamente'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        } else {
+                          scaffoldMessenger.showSnackBar(
+                            SnackBar(
+                              content: Text(controller.errorMessage),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      },
+                tooltip: 'Subir al servidor',
+              ),
+
+            // Botón para compartir
             IconButton(
               icon: controller.isSharingFile(archivo)
                   ? const SizedBox(
@@ -436,19 +511,21 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
                     },
               tooltip: 'Compartir',
             ),
-            IconButton(
-              icon: const Icon(Icons.open_in_new, color: Colors.blue),
-              onPressed: () => controller.abrirArchivo(archivo),
-              tooltip: 'Abrir',
-            ),
           ];
 
-          // Título con el correlativo
+          // Título con el correlativo e icono diferenciador
           final titleWidget = Row(
             children: [
               Icon(
-                isPdf ? Icons.picture_as_pdf : Icons.description,
-                color: isPdf ? Colors.red : Colors.blue,
+                isPdf
+                    ? (isLocal ? Icons.picture_as_pdf : Icons.picture_as_pdf)
+                    : Icons.description,
+                color: isPdf
+                    ? (isLocal
+                        ? Colors.orange
+                        : Colors
+                            .red) // Naranja para PDFs locales, rojo para normales
+                    : Colors.blue,
                 size: 20,
               ),
               const SizedBox(width: 8),

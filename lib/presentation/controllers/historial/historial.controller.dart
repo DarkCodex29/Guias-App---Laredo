@@ -105,6 +105,7 @@ class GuideFile {
 
 class HistorialController extends ChangeNotifier {
   final List<GuideFile> _archivosPdf = [];
+  final List<GuideFile> _archivosPdfLocales = [];
   List<GuideFile> _archivosCsv =
       []; // Dejamos esta lista para mantener compatibilidad
   bool _isLoading = false;
@@ -114,6 +115,9 @@ class HistorialController extends ChangeNotifier {
   bool _mounted =
       true; // Variable para controlar si el controlador está montado
 
+  // Variable para controlar acciones en progreso y evitar doble click
+  bool _isProcessingAction = false;
+
   // Getters
   List<GuideFile> get archivosPdf => _archivosPdf;
   List<GuideFile> get archivosCsv => _archivosCsv;
@@ -122,6 +126,7 @@ class HistorialController extends ChangeNotifier {
   bool get hasError => _errorMessage.isNotEmpty;
   bool get isAdmin => _authProvider.role == 'ADMINISTRADOR';
   bool get mounted => _mounted;
+  bool get isProcessingAction => _isProcessingAction;
 
   // Variables para controlar el estado de carga por tipo de archivo
   bool _isLoadingPagePDF = false;
@@ -148,6 +153,8 @@ class HistorialController extends ChangeNotifier {
 
   final TextEditingController searchController = TextEditingController();
 
+  List<GuideFile> get archivosPdfLocales => _archivosPdfLocales;
+
   @override
   void dispose() {
     searchController.dispose();
@@ -156,7 +163,6 @@ class HistorialController extends ChangeNotifier {
   }
 
   void initialize(BuildContext context) {
-    // Verificar que el componente sigue montado
     if (!context.mounted || !_mounted) return;
 
     _guiaProvider = Provider.of<GuiaProvider>(context, listen: false);
@@ -176,7 +182,7 @@ class HistorialController extends ChangeNotifier {
 
   Future<void> cargarArchivos({bool isAdmin = false}) async {
     if (!_mounted) {
-      return; // Verificar si el controlador sigue montado
+      return;
     }
 
     _isLoading = true;
@@ -184,11 +190,14 @@ class HistorialController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Limpiar la lista antes de cargar nuevos archivos
       _archivosPdf.clear();
+      _archivosPdfLocales.clear();
 
       // Cargar archivos CSV locales (siempre se cargan independientemente del rol)
       await _cargarArchivosCsvLocales();
+
+      // Cargar archivos PDF locales
+      await _cargarArchivosPdfLocales();
 
       // Cargar guías del backend según el rol de usuario
       if (isAdmin) {
@@ -203,9 +212,8 @@ class HistorialController extends ChangeNotifier {
       }
 
       if (!_mounted) {
-        return; // Verificar nuevamente después de operaciones asíncronas
+        return;
       }
-
       // Convertir las guías del backend en objetos GuideFile y agregarlos
       _archivosPdf.addAll(
           _guiaProvider.guias.map((guia) => GuideFile.fromGuia(guia)).toList());
@@ -217,12 +225,11 @@ class HistorialController extends ChangeNotifier {
       _applyFilters();
     } catch (e) {
       if (!_mounted) {
-        return; // Verificar antes de actualizar el estado de error
+        return;
       }
       _errorMessage = 'Error al cargar las guías: ${e.toString()}';
     } finally {
       if (_mounted) {
-        // Solo notificar si seguimos montados
         _isLoading = false;
         _isLoadingPagePDF = false;
         _isLoadingPageCSV = false;
@@ -266,8 +273,7 @@ class HistorialController extends ChangeNotifier {
     }
   }
 
-  // Modificar el método _cargarArchivosCsvLocales
-  // Método para cargar los archivos CSV locales (mantenemos esta funcionalidad)
+  // Método para cargar los archivos CSV locales (simplificado sin paginación)
   Future<void> _cargarArchivosCsvLocales() async {
     try {
       final Directory directory = await getGuiasDirectory();
@@ -287,48 +293,60 @@ class HistorialController extends ChangeNotifier {
             tempCsv.add(archivo);
           }
         } catch (e) {
-          // Ignoramos errores de archivos individuales para que el proceso continúe
-          // con los demás archivos que sí se pueden procesar
+          LoggerService.error('Error al procesar archivo CSV local: $e');
         }
       }
       // Ordenar por fecha de creación (más reciente primero)
       tempCsv.sort((a, b) => b.creationDate.compareTo(a.creationDate));
       _archivosCsv = tempCsv;
-
-      // Actualizar el total de páginas para CSV
-      final totalItems = _archivosCsv.length;
-      final pageSize = 10; // Tamaño de página fijo para CSV
-      final totalPages = (totalItems / pageSize).ceil();
-      _guiaProvider.setTotalPagesCSV(totalPages);
-
-      // Si hay archivos, calcular la página actual
-      if (totalItems > 0) {
-        final startIndex = (_guiaProvider.currentPageCSV - 1) * pageSize;
-        final endIndex = startIndex + pageSize;
-
-        if (startIndex < _archivosCsv.length) {
-          _archivosCsv = _archivosCsv.sublist(startIndex,
-              endIndex > _archivosCsv.length ? _archivosCsv.length : endIndex);
-        } else {
-          // Si el índice de inicio está fuera de rango, ir a la última página
-          final lastPage = totalPages;
-          await _guiaProvider.goToPageCSV(lastPage);
-          final lastPageStartIndex = (lastPage - 1) * pageSize;
-          final lastPageEndIndex = lastPageStartIndex + pageSize;
-          _archivosCsv = _archivosCsv.sublist(
-              lastPageStartIndex,
-              lastPageEndIndex > _archivosCsv.length
-                  ? _archivosCsv.length
-                  : lastPageEndIndex);
-        }
-      }
     } catch (e) {
       LoggerService.error('Error al cargar archivos CSV: $e');
       _archivosCsv = [];
     }
   }
 
+  Future<void> _cargarArchivosPdfLocales() async {
+    try {
+      // Obtener directorio de guías
+      final Directory guiasDir = await getGuiasDirectory();
+
+      if (!await guiasDir.exists()) {
+        await guiasDir.create(recursive: true);
+        return;
+      }
+
+      final List<GuideFile> tempFiles = [];
+
+      // Listar archivos en el directorio
+      await for (final FileSystemEntity entity in guiasDir.list()) {
+        try {
+          if (entity is File &&
+              path.extension(entity.path).toLowerCase() == '.pdf') {
+            final GuideFile archivo = GuideFile.fromFile(entity);
+            tempFiles.add(archivo);
+          }
+        } catch (e) {
+          LoggerService.error('Error al procesar archivo local: $e');
+        }
+      }
+
+      // Ordenar por fecha de creación (más reciente primero)
+      tempFiles.sort((a, b) => b.creationDate.compareTo(a.creationDate));
+
+      // Asignar a la lista de PDFs locales
+      _archivosPdfLocales.addAll(tempFiles);
+    } catch (e) {
+      LoggerService.error('Error al cargar archivos PDF locales: $e');
+    }
+  }
+
   Future<bool> abrirArchivo(GuideFile archivo) async {
+    // Si ya estamos procesando una acción, ignorar
+    if (_isProcessingAction) return false;
+
+    _isProcessingAction = true;
+    notifyListeners();
+
     try {
       // Si es un archivo local (tiene ruta completa)
       if (archivo.fullPath.isNotEmpty &&
@@ -358,7 +376,6 @@ class HistorialController extends ChangeNotifier {
           guiaEncontrada = _guiaProvider.guias.firstWhereOrNull((guia) =>
               archivo.fileName.contains(guia.nombre) ||
               guia.nombre.contains(archivo.fileName));
-          // Corregido: Solo mensaje para warning
           LoggerService.warning(
               'Guía no encontrada por nombre exacto, buscando parcialmente...');
         }
@@ -398,7 +415,6 @@ class HistorialController extends ChangeNotifier {
           if (result.type != ResultType.done) {
             _errorMessage =
                 'No se pudo abrir el archivo descargado: ${result.message}';
-            // Corregido: Solo mensaje para warning
             LoggerService.warning(_errorMessage);
             notifyListeners();
             return false;
@@ -416,90 +432,30 @@ class HistorialController extends ChangeNotifier {
       LoggerService.error(_errorMessage);
       notifyListeners();
       return false;
+    } finally {
+      _isProcessingAction = false;
+      notifyListeners();
     }
     return true;
   }
 
-  // Métodos para paginación PDF
-  Future<void> nextPagePDF() async {
-    if (!_mounted) return;
-
-    if (_guiaProvider.currentPagePDF < _guiaProvider.totalPagesPDF) {
-      _isLoadingPagePDF = true;
-      notifyListeners();
-
-      try {
-        await _guiaProvider.nextPagePDF();
-        await _cargarArchivosPDFSinLimpiar();
-      } catch (e) {
-        _errorMessage =
-            'Error al cargar la siguiente página PDF: ${e.toString()}';
-      } finally {
-        if (_mounted) {
-          _isLoadingPagePDF = false;
-          notifyListeners();
-        }
-      }
-    }
-  }
-
-  Future<void> previousPagePDF() async {
-    if (!_mounted) return;
-
-    if (_guiaProvider.currentPagePDF > 1) {
-      _isLoadingPagePDF = true;
-      notifyListeners();
-
-      try {
-        await _guiaProvider.previousPagePDF();
-        await _cargarArchivosPDFSinLimpiar();
-      } catch (e) {
-        _errorMessage =
-            'Error al cargar la página anterior PDF: ${e.toString()}';
-      } finally {
-        if (_mounted) {
-          _isLoadingPagePDF = false;
-          notifyListeners();
-        }
-      }
-    }
-  }
-
-  Future<void> goToPagePDF(int page) async {
-    if (!_mounted) return;
-
-    if (page >= 1 &&
-        page <= _guiaProvider.totalPagesPDF &&
-        page != _guiaProvider.currentPagePDF) {
-      _isLoadingPagePDF = true;
-      notifyListeners();
-
-      try {
-        await _guiaProvider.goToPagePDF(page);
-        await _cargarArchivosPDFSinLimpiar();
-      } catch (e) {
-        _errorMessage = 'Error al cargar la página $page PDF: ${e.toString()}';
-      } finally {
-        if (_mounted) {
-          _isLoadingPagePDF = false;
-          notifyListeners();
-        }
-      }
-    }
-  }
-
-  // Método para cargar archivos PDF sin limpiar la lista actual
-  Future<void> _cargarArchivosPDFSinLimpiar() async {
+  // Para compatibilidad con la vista y asegurar limpieza completa (sin paginación)
+  Future<void> cargarArchivosPDF({bool isAdmin = false}) async {
     if (!_mounted) return;
 
     _isLoadingPagePDF = true;
+    _errorMessage = '';
     notifyListeners();
 
     try {
-      final authProvider = _authProvider;
-      final isAdmin = authProvider.role == 'ADMINISTRADOR';
+      // Limpiar las listas antes de cargar nuevos archivos
+      _archivosPdf.clear();
+      _archivosPdfLocales.clear();
 
-      // Cargar archivos PDF desde el backend
+      // Cargar archivos PDF locales
+      await _cargarArchivosPdfLocales();
+
+      // Cargar guías del backend según el rol de usuario
       if (isAdmin) {
         // Administrador: cargar todas las guías
         await _guiaProvider.loadGuias(all: true);
@@ -513,174 +469,24 @@ class HistorialController extends ChangeNotifier {
 
       if (!_mounted) return;
 
-      // Actualizar la lista de archivos PDF
-      _archivosPdf.clear();
+      // Convertir las guías del backend en objetos GuideFile y agregarlos
       _archivosPdf.addAll(
           _guiaProvider.guias.map((guia) => GuideFile.fromGuia(guia)).toList());
 
       // Ordenar por fecha de creación (más reciente primero)
       _archivosPdf.sort((a, b) => b.creationDate.compareTo(a.creationDate));
 
-      _isLoadingPagePDF = false;
-      notifyListeners();
+      // Aplicar filtros y actualizar la vista
+      _applyFilters();
     } catch (e) {
       if (!_mounted) return;
-      _errorMessage = 'Error al cargar los archivos PDF: \\${e.toString()}';
-      _isLoadingPagePDF = false;
-      notifyListeners();
-    }
-  }
-
-  // Métodos para paginación CSV
-  Future<void> nextPageCSV() async {
-    if (!_mounted) return;
-
-    if (_guiaProvider.currentPageCSV < _guiaProvider.totalPagesCSV) {
-      _isLoadingPageCSV = true;
-      notifyListeners();
-
-      try {
-        await _guiaProvider.nextPageCSV();
-        await _cargarArchivosCSVSinLimpiar();
-      } catch (e) {
-        _errorMessage =
-            'Error al cargar la siguiente página CSV: ${e.toString()}';
-      } finally {
-        if (_mounted) {
-          _isLoadingPageCSV = false;
-          notifyListeners();
-        }
-      }
-    }
-  }
-
-  Future<void> previousPageCSV() async {
-    if (!_mounted) return;
-
-    if (_guiaProvider.currentPageCSV > 1) {
-      _isLoadingPageCSV = true;
-      notifyListeners();
-
-      try {
-        await _guiaProvider.previousPageCSV();
-        await _cargarArchivosCSVSinLimpiar();
-      } catch (e) {
-        _errorMessage =
-            'Error al cargar la página anterior CSV: ${e.toString()}';
-      } finally {
-        if (_mounted) {
-          _isLoadingPageCSV = false;
-          notifyListeners();
-        }
-      }
-    }
-  }
-
-  Future<void> goToPageCSV(int page) async {
-    if (!_mounted) return;
-
-    if (page >= 1 &&
-        page <= _guiaProvider.totalPagesCSV &&
-        page != _guiaProvider.currentPageCSV) {
-      _isLoadingPageCSV = true;
-      notifyListeners();
-
-      try {
-        await _guiaProvider.goToPageCSV(page);
-        await _cargarArchivosCSVSinLimpiar();
-      } catch (e) {
-        _errorMessage = 'Error al cargar la página $page CSV: ${e.toString()}';
-      } finally {
-        if (_mounted) {
-          _isLoadingPageCSV = false;
-          notifyListeners();
-        }
-      }
-    }
-  }
-
-  // Método para cargar archivos CSV sin limpiar la lista actual
-  Future<void> _cargarArchivosCSVSinLimpiar() async {
-    if (!_mounted) return;
-
-    _isLoadingPageCSV = true;
-    notifyListeners();
-
-    try {
-      // Cargar archivos CSV locales
-      final directory = await getGuiasDirectory();
-      if (!await directory.exists()) {
-        await directory.create(recursive: true);
-        _archivosCsv = [];
-        _guiaProvider.setTotalPagesCSV(0);
-        _isLoadingPageCSV = false;
+      _errorMessage = 'Error al cargar los archivos PDF: ${e.toString()}';
+    } finally {
+      if (_mounted) {
+        _isLoadingPagePDF = false;
         notifyListeners();
-        return;
       }
-
-      // Obtener lista de archivos de manera asíncrona
-      final files = await directory.list().toList();
-      final csvFiles = files
-          .where((file) =>
-              file is File &&
-              file.path.toLowerCase().endsWith('.csv') &&
-              file.statSync().type == FileSystemEntityType.file)
-          .map((file) => GuideFile.fromFile(file))
-          .toList();
-
-      // Ordenar por fecha de creación (más reciente primero)
-      csvFiles.sort((a, b) => b.creationDate.compareTo(a.creationDate));
-
-      // Calcular el total de páginas
-      final totalItems = csvFiles.length;
-      final pageSize = 10; // Tamaño de página fijo para CSV
-      final totalPages = (totalItems / pageSize).ceil();
-
-      // Actualizar el total de páginas en el provider
-      _guiaProvider.setTotalPagesCSV(totalPages);
-
-      // Si no hay archivos, asegurarse de que la página actual sea 1
-      if (totalItems == 0) {
-        _archivosCsv = [];
-        _isLoadingPageCSV = false;
-        notifyListeners();
-        return;
-      }
-
-      // Calcular el índice de inicio y fin para la página actual
-      final startIndex = (_guiaProvider.currentPageCSV - 1) * pageSize;
-      final endIndex = startIndex + pageSize;
-
-      // Actualizar la lista de archivos CSV
-      if (startIndex < csvFiles.length) {
-        _archivosCsv = csvFiles.sublist(startIndex,
-            endIndex > csvFiles.length ? csvFiles.length : endIndex);
-      } else {
-        // Si el índice de inicio está fuera de rango, ir a la última página
-        final lastPage = totalPages;
-        await _guiaProvider.goToPageCSV(lastPage);
-        final lastPageStartIndex = (lastPage - 1) * pageSize;
-        final lastPageEndIndex = lastPageStartIndex + pageSize;
-        _archivosCsv = csvFiles.sublist(
-            lastPageStartIndex,
-            lastPageEndIndex > csvFiles.length
-                ? csvFiles.length
-                : lastPageEndIndex);
-      }
-
-      _isLoadingPageCSV = false;
-      notifyListeners();
-    } catch (e) {
-      if (!_mounted) return;
-      _errorMessage = 'Error al cargar los archivos CSV: ${e.toString()}';
-      _isLoadingPageCSV = false;
-      notifyListeners();
     }
-  }
-
-  // Para compatibilidad con la vista
-  Future<void> cargarArchivosPDF({bool isAdmin = false}) async {
-    return cargarArchivos(isAdmin: isAdmin);
   }
 
   // Método para compartir archivos
@@ -814,6 +620,7 @@ class HistorialController extends ChangeNotifier {
     }
   }
 
+  // Método simplificado para cargar archivos CSV (sin paginación)
   Future<void> cargarArchivosCSV({bool isAdmin = false}) async {
     if (!_mounted) return;
 
@@ -822,74 +629,18 @@ class HistorialController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Cargar archivos CSV locales
-      final directory = await getGuiasDirectory();
-      if (!await directory.exists()) {
-        await directory.create(recursive: true);
-        _archivosCsv = [];
-        _guiaProvider.setTotalPagesCSV(0);
-        _isLoadingPageCSV = false;
-        notifyListeners();
-        return;
-      }
+      await _cargarArchivosCsvLocales();
 
-      // Obtener lista de archivos de manera asíncrona
-      final files = await directory.list().toList();
-      final csvFiles = files
-          .where((file) =>
-              file is File &&
-              file.path.toLowerCase().endsWith('.csv') &&
-              file.statSync().type == FileSystemEntityType.file)
-          .map((file) => GuideFile.fromFile(file))
-          .toList();
-
-      // Ordenar por fecha de creación (más reciente primero)
-      csvFiles.sort((a, b) => b.creationDate.compareTo(a.creationDate));
-
-      // Calcular el total de páginas
-      final totalItems = csvFiles.length;
-      final pageSize = 10; // Tamaño de página fijo para CSV
-      final totalPages = (totalItems / pageSize).ceil();
-
-      // Actualizar el total de páginas en el provider
-      _guiaProvider.setTotalPagesCSV(totalPages);
-
-      // Si no hay archivos, asegurarse de que la página actual sea 1
-      if (totalItems == 0) {
-        _archivosCsv = [];
-        _isLoadingPageCSV = false;
-        notifyListeners();
-        return;
-      }
-
-      // Calcular el índice de inicio y fin para la página actual
-      final startIndex = (_guiaProvider.currentPageCSV - 1) * pageSize;
-      final endIndex = startIndex + pageSize;
-
-      // Actualizar la lista de archivos CSV
-      if (startIndex < csvFiles.length) {
-        _archivosCsv = csvFiles.sublist(startIndex,
-            endIndex > csvFiles.length ? csvFiles.length : endIndex);
-      } else {
-        // Si el índice de inicio está fuera de rango, ir a la última página
-        final lastPage = totalPages;
-        await _guiaProvider.goToPageCSV(lastPage);
-        final lastPageStartIndex = (lastPage - 1) * pageSize;
-        final lastPageEndIndex = lastPageStartIndex + pageSize;
-        _archivosCsv = csvFiles.sublist(
-            lastPageStartIndex,
-            lastPageEndIndex > csvFiles.length
-                ? csvFiles.length
-                : lastPageEndIndex);
-      }
-
-      _isLoadingPageCSV = false;
-      notifyListeners();
+      // Aplicar filtros
+      _filteredCsvFiles = _filterFiles(_archivosCsv);
     } catch (e) {
       if (!_mounted) return;
       _errorMessage = 'Error al cargar los archivos CSV: ${e.toString()}';
-      _isLoadingPageCSV = false;
-      notifyListeners();
+    } finally {
+      if (_mounted) {
+        _isLoadingPageCSV = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -900,9 +651,36 @@ class HistorialController extends ChangeNotifier {
   }
 
   // Función para buscar/filtrar guías
-  void searchGuias(String searchTerm) {
-    _searchText = searchTerm;
-    _applyFilters();
+  void searchGuias(String value) {
+    _searchText = value;
+
+    // Filtrar archivos del servidor
+    final serverPdfFiles = _archivosPdf.where((file) {
+      return file.fileName.toLowerCase().contains(value.toLowerCase()) ||
+          (file.serieCorrelativo?.toLowerCase().contains(value.toLowerCase()) ??
+              false) ||
+          (file.usernameUsuario?.toLowerCase().contains(value.toLowerCase()) ??
+              false);
+    }).toList();
+
+    // Filtrar archivos locales
+    final localPdfFiles = _archivosPdfLocales.where((file) {
+      return file.fileName.toLowerCase().contains(value.toLowerCase()) ||
+          (file.serieCorrelativo?.toLowerCase().contains(value.toLowerCase()) ??
+              false);
+    }).toList();
+
+    // Combinar ambas listas manteniendo los locales primero
+    _filteredPdfFiles = [...localPdfFiles, ...serverPdfFiles];
+
+    // Filtrar archivos CSV
+    _filteredCsvFiles = _archivosCsv.where((file) {
+      return file.fileName.toLowerCase().contains(value.toLowerCase()) ||
+          (file.serieCorrelativo?.toLowerCase().contains(value.toLowerCase()) ??
+              false);
+    }).toList();
+
+    notifyListeners();
   }
 
   // Método para limpiar todos los filtros
@@ -914,7 +692,14 @@ class HistorialController extends ChangeNotifier {
 
   // Aplicar todos los filtros actuales
   void _applyFilters() {
-    _filteredPdfFiles = _filterFiles(_archivosPdf);
+    // Filtrar archivos locales y del servidor por separado
+    final filteredLocalPdfs = _filterFiles(_archivosPdfLocales);
+    final filteredServerPdfs = _filterFiles(_archivosPdf);
+
+    // Combinar las listas con los archivos locales primero
+    _filteredPdfFiles = [...filteredLocalPdfs, ...filteredServerPdfs];
+
+    // Filtrar archivos CSV
     _filteredCsvFiles = _filterFiles(_archivosCsv);
     notifyListeners();
   }
@@ -938,9 +723,67 @@ class HistorialController extends ChangeNotifier {
                   .contains(_searchText.toLowerCase()));
     }).toList();
   }
+
+  // Método para subir un archivo PDF local al servidor
+  Future<bool> subirArchivoLocal(GuideFile archivo) async {
+    _isSharing = true;
+    _sharingFileId = archivo.fullPath;
+    notifyListeners();
+
+    try {
+      // Verificar que el archivo existe
+      final file = File(archivo.fullPath);
+      if (!await file.exists()) {
+        _errorMessage = 'El archivo no existe';
+        return false;
+      }
+
+      // Leer el archivo como bytes
+      final bytes = await file.readAsBytes();
+
+      // Llamar al provider para subir el archivo
+      final userId = _authProvider.userId;
+      if (userId == null) {
+        _errorMessage = 'Usuario no autenticado';
+        return false;
+      }
+
+      // El método uploadGuia devuelve un Guia? (puede ser nulo)
+      final guia = await _guiaProvider.uploadGuia(
+        archivo.fileName,
+        bytes,
+        userId.toString(),
+      );
+
+      if (guia != null) {
+        // Si la subida fue exitosa, eliminar el archivo local
+        try {
+          if (await file.exists()) {
+            await file.delete();
+            LoggerService.info(
+                'Archivo local eliminado después de subir al servidor: ${archivo.fullPath}');
+          }
+        } catch (deleteError) {
+          LoggerService.warning(
+              'No se pudo eliminar el archivo local después de subirlo: $deleteError');
+        }
+        await cargarArchivosPDF(isAdmin: isAdmin);
+        return true;
+      } else {
+        _errorMessage = _guiaProvider.error ?? 'Error al subir el archivo';
+        return false;
+      }
+    } catch (e) {
+      _errorMessage = 'Error al subir el archivo: $e';
+      return false;
+    } finally {
+      _isSharing = false;
+      _sharingFileId = null;
+      notifyListeners();
+    }
+  }
 }
 
-// Helper para firstWhereOrNull (si no usas collection)
 extension FirstWhereExt<T> on Iterable<T> {
   T? firstWhereOrNull(bool Function(T element) test) {
     for (var element in this) {
