@@ -106,54 +106,54 @@ class GuideFile {
 class HistorialController extends ChangeNotifier {
   final List<GuideFile> _archivosPdf = [];
   final List<GuideFile> _archivosPdfLocales = [];
-  List<GuideFile> _archivosCsv =
-      []; // Dejamos esta lista para mantener compatibilidad
+  List<GuideFile> _archivosCsv = [];
   bool _isLoading = false;
   String _errorMessage = '';
   late GuiaProvider _guiaProvider;
   late AuthProvider _authProvider;
-  bool _mounted =
-      true; // Variable para controlar si el controlador está montado
+  bool _mounted = true;
 
-  // Variable para controlar acciones en progreso y evitar doble click
+  // Variables para controlar acciones en progreso
   bool _isProcessingAction = false;
-
-  // Getters
-  List<GuideFile> get archivosPdf => _archivosPdf;
-  List<GuideFile> get archivosCsv => _archivosCsv;
-  bool get isLoading => _isLoading;
-  String get errorMessage => _errorMessage;
-  bool get hasError => _errorMessage.isNotEmpty;
-  bool get isAdmin => _authProvider.role == 'ADMINISTRADOR';
-  bool get mounted => _mounted;
-  bool get isProcessingAction => _isProcessingAction;
+  bool _isSharing = false;
+  bool _isUploading = false;
+  String? _sharingFileId;
+  String? _uploadingFileId;
 
   // Variables para controlar el estado de carga por tipo de archivo
   bool _isLoadingPagePDF = false;
   bool _isLoadingPageCSV = false;
-  bool _isSharing = false;
-  String? _sharingFileId; // Identificador del archivo que se está compartiendo
-  bool get isLoadingPagePDF => _isLoadingPagePDF;
-  bool get isLoadingPageCSV => _isLoadingPageCSV;
-  bool get isSharing => _isSharing;
-  String? get sharingFileId => _sharingFileId;
-
-  // Para compatibilidad con código existente
-  bool get isLoadingPage => _isLoadingPagePDF;
 
   // Variables para búsqueda y filtrado
   String _searchText = '';
   List<GuideFile> _filteredPdfFiles = [];
   List<GuideFile> _filteredCsvFiles = [];
 
-  // Getters para búsqueda y filtrado
+  final TextEditingController searchController = TextEditingController();
+
+  // Getters
+  List<GuideFile> get archivosPdf => _archivosPdf;
+  List<GuideFile> get archivosCsv => _archivosCsv;
+  List<GuideFile> get archivosPdfLocales => _archivosPdfLocales;
+  bool get isLoading => _isLoading;
+  String get errorMessage => _errorMessage;
+  bool get hasError => _errorMessage.isNotEmpty;
+  bool get isAdmin => _authProvider.role == 'ADMINISTRADOR';
+  bool get mounted => _mounted;
+  bool get isProcessingAction =>
+      _isProcessingAction || _isSharing || _isUploading;
+  bool get isLoadingPagePDF => _isLoadingPagePDF;
+  bool get isLoadingPageCSV => _isLoadingPageCSV;
+  bool get isSharing => _isSharing;
+  bool get isUploading => _isUploading;
+  String? get sharingFileId => _sharingFileId;
+  String? get uploadingFileId => _uploadingFileId;
   String get searchText => _searchText;
   List<GuideFile> get filteredPdfFiles => _filteredPdfFiles;
   List<GuideFile> get filteredCsvFiles => _filteredCsvFiles;
 
-  final TextEditingController searchController = TextEditingController();
-
-  List<GuideFile> get archivosPdfLocales => _archivosPdfLocales;
+  // Para compatibilidad con código existente
+  bool get isLoadingPage => _isLoadingPagePDF;
 
   @override
   void dispose() {
@@ -317,10 +317,15 @@ class HistorialController extends ChangeNotifier {
 
       final List<GuideFile> tempFiles = [];
 
+      // Limpiar la lista antes de cargar
+      _archivosPdfLocales.clear();
+
       // Listar archivos en el directorio
       await for (final FileSystemEntity entity in guiasDir.list()) {
         try {
+          // Solo procesar archivos que existan y sean PDF
           if (entity is File &&
+              await entity.exists() &&
               path.extension(entity.path).toLowerCase() == '.pdf') {
             final GuideFile archivo = GuideFile.fromFile(entity);
             tempFiles.add(archivo);
@@ -646,41 +651,21 @@ class HistorialController extends ChangeNotifier {
 
   // Método para verificar si un archivo específico se está compartiendo
   bool isSharingFile(GuideFile file) {
-    if (!_isSharing) return false;
-    return _sharingFileId == file.fullPath || _sharingFileId == file.fileName;
+    return _isSharing &&
+        (_sharingFileId == file.fullPath || _sharingFileId == file.fileName);
+  }
+
+  // Método para verificar si un archivo específico se está subiendo
+  bool isUploadingFile(GuideFile file) {
+    return _isUploading &&
+        (_uploadingFileId == file.fullPath ||
+            _uploadingFileId == file.fileName);
   }
 
   // Función para buscar/filtrar guías
   void searchGuias(String value) {
     _searchText = value;
-
-    // Filtrar archivos del servidor
-    final serverPdfFiles = _archivosPdf.where((file) {
-      return file.fileName.toLowerCase().contains(value.toLowerCase()) ||
-          (file.serieCorrelativo?.toLowerCase().contains(value.toLowerCase()) ??
-              false) ||
-          (file.usernameUsuario?.toLowerCase().contains(value.toLowerCase()) ??
-              false);
-    }).toList();
-
-    // Filtrar archivos locales
-    final localPdfFiles = _archivosPdfLocales.where((file) {
-      return file.fileName.toLowerCase().contains(value.toLowerCase()) ||
-          (file.serieCorrelativo?.toLowerCase().contains(value.toLowerCase()) ??
-              false);
-    }).toList();
-
-    // Combinar ambas listas manteniendo los locales primero
-    _filteredPdfFiles = [...localPdfFiles, ...serverPdfFiles];
-
-    // Filtrar archivos CSV
-    _filteredCsvFiles = _archivosCsv.where((file) {
-      return file.fileName.toLowerCase().contains(value.toLowerCase()) ||
-          (file.serieCorrelativo?.toLowerCase().contains(value.toLowerCase()) ??
-              false);
-    }).toList();
-
-    notifyListeners();
+    _applyFilters();
   }
 
   // Método para limpiar todos los filtros
@@ -710,77 +695,164 @@ class HistorialController extends ChangeNotifier {
       return List.from(files);
     }
 
+    final searchLower = _searchText.toLowerCase();
     return files.where((file) {
-      // Filtrar por texto de búsqueda
-      return file.fileName.toLowerCase().contains(_searchText.toLowerCase()) ||
-          (file.serieCorrelativo != null &&
-              file.serieCorrelativo!
-                  .toLowerCase()
-                  .contains(_searchText.toLowerCase())) ||
-          (file.usernameUsuario != null &&
-              file.usernameUsuario!
-                  .toLowerCase()
-                  .contains(_searchText.toLowerCase()));
+      return file.fileName.toLowerCase().contains(searchLower) ||
+          (file.serieCorrelativo?.toLowerCase().contains(searchLower) ??
+              false) ||
+          (file.usernameUsuario?.toLowerCase().contains(searchLower) ?? false);
     }).toList();
   }
 
   // Método para subir un archivo PDF local al servidor
   Future<bool> subirArchivoLocal(GuideFile archivo) async {
-    _isSharing = true;
-    _sharingFileId = archivo.fullPath;
+    _isUploading = true;
+    _uploadingFileId = archivo.fullPath;
     notifyListeners();
 
     try {
+      LoggerService.info(
+          'Iniciando subida de archivo local: ${archivo.fileName}');
+
       // Verificar que el archivo existe
       final file = File(archivo.fullPath);
       if (!await file.exists()) {
         _errorMessage = 'El archivo no existe';
+        LoggerService.error('El archivo ${archivo.fileName} no existe');
         return false;
       }
 
-      // Leer el archivo como bytes
       final bytes = await file.readAsBytes();
-
-      // Llamar al provider para subir el archivo
       final userId = _authProvider.userId;
       if (userId == null) {
         _errorMessage = 'Usuario no autenticado';
+        LoggerService.error(
+            'Usuario no autenticado al subir ${archivo.fileName}');
         return false;
       }
 
-      // El método uploadGuia devuelve un Guia? (puede ser nulo)
-      final guia = await _guiaProvider.uploadGuia(
-        archivo.fileName,
-        bytes,
-        userId.toString(),
-      );
+      try {
+        // Intentar subir el archivo
+        LoggerService.info(
+            'Enviando archivo ${archivo.fileName} al servidor...');
+        final guia = await _guiaProvider.uploadGuia(
+          archivo.fileName,
+          bytes,
+          userId.toString(),
+        );
 
-      if (guia != null) {
-        // Si la subida fue exitosa, eliminar el archivo local
-        try {
-          if (await file.exists()) {
-            await file.delete();
-            LoggerService.info(
-                'Archivo local eliminado después de subir al servidor: ${archivo.fullPath}');
-          }
-        } catch (deleteError) {
-          LoggerService.warning(
-              'No se pudo eliminar el archivo local después de subirlo: $deleteError');
+        // Si la subida fue exitosa (201) y tenemos un objeto guia
+        if (guia != null) {
+          LoggerService.info(
+              'Archivo ${archivo.fileName} subido exitosamente. ID: ${guia.id}');
+          await _eliminarArchivoLocal(file, archivo);
+          return true;
         }
-        await cargarArchivosPDF(isAdmin: isAdmin);
-        return true;
-      } else {
-        _errorMessage = _guiaProvider.error ?? 'Error al subir el archivo';
+
+        // Verificar si, a pesar del error, la guía se creó en el servidor
+        LoggerService.info(
+            'Verificando si la guía ${archivo.fileName} se creó a pesar del error');
+        await _guiaProvider.loadGuias(all: true);
+        final guiaCreada = _guiaProvider.guias.any((guia) =>
+            guia.nombre.toLowerCase() == archivo.fileName.toLowerCase());
+
+        if (guiaCreada) {
+          LoggerService.info(
+              'La guía ${archivo.fileName} se encuentra en el servidor a pesar del error reportado');
+          await _eliminarArchivoLocal(file, archivo);
+          return true;
+        }
+
+        // Si hay error del servidor (500)
+        LoggerService.error(
+            'Error del servidor al subir ${archivo.fileName}: ${_guiaProvider.error}');
+        if (_guiaProvider.error?.contains("Error interno del servidor") ??
+            false) {
+          // Verificar si la guía ya existe
+          LoggerService.info(
+              'Verificando si la guía ${archivo.fileName} ya existe en el servidor');
+
+          final encontrada = _guiaProvider.guias.any((guia) =>
+              guia.nombre.toLowerCase() == archivo.fileName.toLowerCase() ||
+              archivo.fileName.contains(guia.nombre) ||
+              guia.nombre.contains(archivo.fileName));
+
+          if (encontrada) {
+            LoggerService.info(
+                'La guía ${archivo.fileName} ya existe en el servidor, eliminando copia local');
+            await _eliminarArchivoLocal(file, archivo);
+            _errorMessage =
+                'La guía ya existe en el servidor. Se eliminará la copia local.';
+            return false;
+          }
+        }
+
+        _errorMessage = _guiaProvider.error ?? 'Error desconocido del servidor';
+        return false;
+      } catch (uploadError) {
+        LoggerService.error(
+            'Error durante la subida de ${archivo.fileName}: $uploadError');
+        _errorMessage = 'Error durante la subida: $uploadError';
         return false;
       }
     } catch (e) {
-      _errorMessage = 'Error al subir el archivo: $e';
+      LoggerService.error(
+          'Error al procesar el archivo ${archivo.fileName}: $e');
+      _errorMessage = 'Error al procesar el archivo: $e';
       return false;
     } finally {
-      _isSharing = false;
-      _sharingFileId = null;
+      _isUploading = false;
+      _uploadingFileId = null;
+      LoggerService.info(
+          'Finalizado proceso de subida para ${archivo.fileName}');
       notifyListeners();
     }
+  }
+
+  // Método para restaurar el estado anterior de los archivos (para uso en manejo de errores UI)
+  void restoreFilesState(List<GuideFile> pdfFiles, List<GuideFile> csvFiles) {
+    // Restaurar las listas filtradas
+    _filteredPdfFiles = pdfFiles;
+    _filteredCsvFiles = csvFiles;
+    notifyListeners();
+  }
+
+  // Método para limpiar el mensaje de error
+  void clearError() {
+    _errorMessage = '';
+    notifyListeners();
+  }
+
+  // Método para verificar si hay error específico de guía ya existente
+  bool get isGuiaExistsError {
+    return _errorMessage.contains('La guía ya existe en el servidor');
+  }
+
+  // Método para obtener el mensaje de error y limpiarlo
+  String getErrorAndClear() {
+    final error = _errorMessage;
+    _errorMessage = '';
+    return error;
+  }
+
+  // Método privado para eliminar archivos locales
+  Future<void> _eliminarArchivoLocal(File file, GuideFile archivo) async {
+    try {
+      if (await file.exists()) {
+        await file.delete();
+        LoggerService.info(
+            'Archivo local eliminado después de subir al servidor: ${archivo.fullPath}');
+
+        // Eliminar el archivo de la lista local antes de recargar
+        _archivosPdfLocales.removeWhere((a) => a.fullPath == archivo.fullPath);
+      }
+    } catch (deleteError) {
+      LoggerService.warning(
+          'No se pudo eliminar el archivo local después de subirlo: $deleteError');
+    }
+
+    // Esperar un momento para asegurar que los cambios del sistema de archivos se reflejen
+    await Future.delayed(const Duration(milliseconds: 200));
   }
 }
 

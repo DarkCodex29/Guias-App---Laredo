@@ -7,6 +7,8 @@ import 'package:app_guias/providers/auth.provider.dart';
 import 'package:app_guias/presentation/widgets/custom.card.dart';
 import 'package:app_guias/presentation/widgets/custom.card.shimmer.dart';
 import 'package:app_guias/presentation/widgets/custom.textfield.dart';
+import 'package:app_guias/presentation/widgets/modals/procesando.modal.dart';
+import 'package:app_guias/presentation/widgets/modals/resultado.modal.dart';
 
 class HistorialPage extends StatelessWidget {
   const HistorialPage({super.key});
@@ -430,46 +432,158 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
 
           // Iconos para compartir y subir (si es local)
           final List<Widget> actions = [
-            // Botón para subir al servidor (solo para archivos locales)
+            // Botón para subir al backend
             if (isLocal)
               IconButton(
-                icon: controller.isSharingFile(archivo)
+                icon: controller.isUploadingFile(archivo)
                     ? const SizedBox(
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
                           valueColor:
-                              AlwaysStoppedAnimation<Color>(AppColors.primary),
+                              AlwaysStoppedAnimation<Color>(Colors.blue),
                         ),
                       )
-                    : const Icon(Icons.cloud_upload, color: AppColors.primary),
-                onPressed: controller.isSharingFile(archivo)
+                    : const Icon(Icons.cloud_upload, color: Colors.blue),
+                onPressed: controller.isUploadingFile(archivo)
                     ? null
                     : () async {
-                        final scaffoldMessenger = ScaffoldMessenger.of(context);
-                        final success =
-                            await controller.subirArchivoLocal(archivo);
+                        // Mostrar diálogo de confirmación primero
+                        final confirmResult = await showDialog<bool>(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (BuildContext dialogContext) {
+                            return AlertDialog(
+                              backgroundColor: AppColors.white,
+                              title: const Text('Confirmar subida'),
+                              content: const Text(
+                                '¿Está seguro que desea subir esta guía al servidor?',
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () =>
+                                      Navigator.of(dialogContext).pop(false),
+                                  child: const Text('Cancelar'),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () =>
+                                      Navigator.of(dialogContext).pop(true),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.primary,
+                                  ),
+                                  child: const Text(
+                                    'Subir',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        );
 
-                        if (!mounted) return;
+                        // Verificar si se confirmó la subida
+                        if (confirmResult != true || !context.mounted) return;
 
-                        if (success) {
-                          scaffoldMessenger.showSnackBar(
-                            const SnackBar(
-                              content: Text('Archivo subido exitosamente'),
-                              backgroundColor: Colors.green,
-                            ),
+                        // Guardar las listas actuales para poder restaurarlas en caso de error
+                        final currentPdfFiles =
+                            List<GuideFile>.from(controller.filteredPdfFiles);
+                        final currentCsvFiles =
+                            List<GuideFile>.from(controller.filteredCsvFiles);
+
+                        // Mostrar modal de procesamiento
+                        ProcesandoModal.show(
+                          context,
+                          title: 'Subiendo guía',
+                          message: 'Subiendo archivo al servidor...',
+                        );
+
+                        try {
+                          // Limpiar cualquier error previo
+                          controller.clearError();
+
+                          // Subir el archivo
+                          final success =
+                              await controller.subirArchivoLocal(archivo);
+
+                          // Asegurarnos de cerrar el modal de procesamiento
+                          if (context.mounted) {
+                            Navigator.of(context).pop();
+                          }
+
+                          if (!context.mounted) return;
+
+                          if (success) {
+                            // Actualizar la lista después de una subida exitosa
+                            await controller.cargarArchivos(
+                                isAdmin: controller.isAdmin);
+
+                            // Subida exitosa - mostrar después de actualizar la lista
+                            if (context.mounted) {
+                              await ResultadoModal.showSuccess(
+                                context,
+                                title: 'Éxito',
+                                message: 'Archivo subido exitosamente',
+                              );
+                            }
+                          } else {
+                            final errorMsg = controller.getErrorAndClear();
+
+                            // Si el error contiene el mensaje de guía existente
+                            if (controller.isGuiaExistsError) {
+                              await ResultadoModal.showError(
+                                context,
+                                title: 'Guía ya registrada',
+                                message: errorMsg,
+                                onButtonPressed: () {
+                                  Navigator.of(context).pop();
+                                },
+                              );
+                              // Actualizar la lista después de eliminar el archivo local
+                              await controller.cargarArchivos(
+                                  isAdmin: controller.isAdmin);
+                            } else {
+                              // Para otros tipos de errores
+                              await ResultadoModal.showError(
+                                context,
+                                title: 'Error',
+                                message: 'No se pudo subir el archivo',
+                                details: [Text(errorMsg)],
+                                onButtonPressed: () {
+                                  Navigator.of(context).pop();
+                                },
+                              );
+                              // Restaurar las listas originales
+                              controller.restoreFilesState(
+                                  currentPdfFiles, currentCsvFiles);
+                            }
+                          }
+                        } catch (e) {
+                          // Cerrar el modal de procesamiento si sigue abierto
+                          if (context.mounted) {
+                            Navigator.of(context).pop();
+                          }
+
+                          if (!context.mounted) return;
+
+                          // Mostrar error inesperado
+                          await ResultadoModal.showError(
+                            context,
+                            title: 'Error',
+                            message: 'Ocurrió un error inesperado',
+                            details: [Text(e.toString())],
+                            onButtonPressed: () {
+                              Navigator.of(context).pop();
+                            },
                           );
-                        } else {
-                          scaffoldMessenger.showSnackBar(
-                            SnackBar(
-                              content: Text(controller.errorMessage),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
+                          controller.clearError();
+
+                          // Restaurar las listas originales
+                          controller.restoreFilesState(
+                              currentPdfFiles, currentCsvFiles);
                         }
                       },
-                tooltip: 'Subir al servidor',
+                tooltip: 'Subir al backend',
               ),
 
             // Botón para compartir
@@ -487,25 +601,85 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
               onPressed: controller.isSharingFile(archivo)
                   ? null
                   : () async {
-                      final scaffoldMessenger = ScaffoldMessenger.of(context);
+                      // Mostrar diálogo de carga
+                      showDialog(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (BuildContext dialogContext) {
+                          return PopScope(
+                            canPop: false,
+                            onPopInvokedWithResult: (didPop, result) {
+                              if (didPop) {
+                                Navigator.of(dialogContext).pop();
+                              }
+                            },
+                            child: AlertDialog(
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  SizedBox(height: 16),
+                                  CircularProgressIndicator(),
+                                  SizedBox(height: 24),
+                                  Text(
+                                    'Preparando archivo para compartir...',
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      );
+
+                      // Compartir el archivo
                       final success =
                           await controller.compartirArchivo(archivo);
 
-                      if (!mounted) return;
+                      // Cerrar el diálogo de carga
+                      if (context.mounted) {
+                        // Usamos un pequeño retraso para asegurar que el Navigator se desbloquee
+                        await Future.delayed(const Duration(milliseconds: 100));
+                        if (context.mounted) Navigator.of(context).pop();
+                      }
 
-                      if (success) {
-                        scaffoldMessenger.showSnackBar(
-                          const SnackBar(
-                            content: Text('Archivo compartido exitosamente'),
-                            backgroundColor: Colors.green,
-                          ),
-                        );
-                      } else if (controller.errorMessage.isNotEmpty) {
-                        scaffoldMessenger.showSnackBar(
-                          SnackBar(
-                            content: Text(controller.errorMessage),
-                            backgroundColor: Colors.red,
-                          ),
+                      // Verificar si el widget todavía está montado
+                      if (!context.mounted) return;
+
+                      // Usamos otro pequeño retraso para asegurar que el Navigator se desbloquee completamente
+                      await Future.delayed(const Duration(milliseconds: 100));
+                      if (!context.mounted) return;
+
+                      // Si hubo error, mostrar diálogo
+                      if (!success) {
+                        showDialog(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (BuildContext dialogContext) {
+                            return AlertDialog(
+                              title: const Text(
+                                'Error',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                              content: Text(
+                                controller.errorMessage.isNotEmpty
+                                    ? controller.errorMessage
+                                    : 'No se pudo compartir el archivo',
+                              ),
+                              actions: [
+                                ElevatedButton(
+                                  onPressed: () =>
+                                      Navigator.of(dialogContext).pop(),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.primary,
+                                  ),
+                                  child: const Text(
+                                    'ACEPTAR',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
                         );
                       }
                     },

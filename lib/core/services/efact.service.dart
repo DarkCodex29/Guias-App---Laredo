@@ -274,7 +274,7 @@ class EfactService {
       }
 
       // Implementar reintentos para el código 202 (En proceso)
-      final int maxIntentos = 5;
+      final int maxIntentos = 30;
       final Duration tiempoEspera = const Duration(seconds: 6);
 
       for (int intento = 1; intento <= maxIntentos; intento++) {
@@ -375,7 +375,7 @@ class EfactService {
   Future<String> getPdf(String ticket, [String? nombreBaseArchivo]) async {
     try {
       // Implementar reintentos para el código 202 (En proceso)
-      final int maxIntentos = 5;
+      final int maxIntentos = 30;
       final Duration tiempoEspera = const Duration(seconds: 6);
 
       for (int intento = 1; intento <= maxIntentos; intento++) {
