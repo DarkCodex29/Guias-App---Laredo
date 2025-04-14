@@ -707,104 +707,82 @@ class HistorialController extends ChangeNotifier {
   // Método para subir un archivo PDF local al servidor
   Future<bool> subirArchivoLocal(GuideFile archivo) async {
     _isUploading = true;
-    _uploadingFileId = archivo.fullPath;
+    _errorMessage = '';
     notifyListeners();
 
     try {
-      LoggerService.info(
-          'Iniciando subida de archivo local: ${archivo.fileName}');
-
-      // Verificar que el archivo existe
+      // Verificar si el archivo existe
       final file = File(archivo.fullPath);
       if (!await file.exists()) {
-        _errorMessage = 'El archivo no existe';
-        LoggerService.error('El archivo ${archivo.fileName} no existe');
+        _errorMessage = 'El archivo no existe en la ruta: ${archivo.fullPath}';
+        _isUploading = false;
+        notifyListeners();
         return false;
       }
 
-      final bytes = await file.readAsBytes();
+      // Verificar si el usuario está autenticado
       final userId = _authProvider.userId;
       if (userId == null) {
         _errorMessage = 'Usuario no autenticado';
-        LoggerService.error(
-            'Usuario no autenticado al subir ${archivo.fileName}');
+        _isUploading = false;
+        notifyListeners();
         return false;
       }
 
-      try {
-        // Intentar subir el archivo
+      // Leer el archivo como bytes
+      final bytes = await file.readAsBytes();
+
+      // Subir el archivo al backend
+      final response = await _guiaProvider.uploadGuia(
+        archivo.fileName,
+        bytes,
+        userId,
+      );
+
+      // Si la respuesta es exitosa
+      if (response != null) {
         LoggerService.info(
-            'Enviando archivo ${archivo.fileName} al servidor...');
-        final guia = await _guiaProvider.uploadGuia(
-          archivo.fileName,
-          bytes,
-          userId.toString(),
-        );
+            'Guía subida exitosamente: ${response.id} - ${response.nombre}');
 
-        // Si la subida fue exitosa (201) y tenemos un objeto guia
-        if (guia != null) {
+        // Eliminar el archivo local después de la subida exitosa
+        _eliminarArchivoLocal(archivo);
+
+        // Recargar la lista de archivos
+        _cargarArchivosLocales();
+        _cargarGuiasDesdeBackend();
+        return true;
+      } else {
+        // Verificar si el error es porque la guía ya existe
+        final errorMsg = _guiaProvider.error?.toLowerCase() ?? '';
+
+        // Verificar si es un error 500 (que puede indicar guía duplicada en el servidor)
+        if (errorMsg.contains('código: 500') ||
+            errorMsg.contains('error interno del servidor') ||
+            errorMsg.contains('ya existe') ||
+            errorMsg.contains('already exists') ||
+            errorMsg.contains('duplicate')) {
           LoggerService.info(
-              'Archivo ${archivo.fileName} subido exitosamente. ID: ${guia.id}');
-          await _eliminarArchivoLocal(file, archivo);
-          return true;
+              'Detectado posible error de guía duplicada: $errorMsg');
+          _errorMessage =
+              'Esta guía ya existe en el servidor, se eliminará de forma local.';
+
+          // Como posiblemente ya existe en el servidor, eliminamos el archivo local
+          _eliminarArchivoLocal(archivo);
+
+          // Recargar solo la lista de archivos locales
+          _cargarArchivosLocales();
+        } else {
+          _errorMessage =
+              'Error del servidor al subir ${archivo.fileName}: ${_guiaProvider.error}';
         }
-
-        // Verificar si, a pesar del error, la guía se creó en el servidor
-        LoggerService.info(
-            'Verificando si la guía ${archivo.fileName} se creó a pesar del error');
-        await _guiaProvider.loadGuias(all: true);
-        final guiaCreada = _guiaProvider.guias.any((guia) =>
-            guia.nombre.toLowerCase() == archivo.fileName.toLowerCase());
-
-        if (guiaCreada) {
-          LoggerService.info(
-              'La guía ${archivo.fileName} se encuentra en el servidor a pesar del error reportado');
-          await _eliminarArchivoLocal(file, archivo);
-          return true;
-        }
-
-        // Si hay error del servidor (500)
-        LoggerService.error(
-            'Error del servidor al subir ${archivo.fileName}: ${_guiaProvider.error}');
-        if (_guiaProvider.error?.contains("Error interno del servidor") ??
-            false) {
-          // Verificar si la guía ya existe
-          LoggerService.info(
-              'Verificando si la guía ${archivo.fileName} ya existe en el servidor');
-
-          final encontrada = _guiaProvider.guias.any((guia) =>
-              guia.nombre.toLowerCase() == archivo.fileName.toLowerCase() ||
-              archivo.fileName.contains(guia.nombre) ||
-              guia.nombre.contains(archivo.fileName));
-
-          if (encontrada) {
-            LoggerService.info(
-                'La guía ${archivo.fileName} ya existe en el servidor, eliminando copia local');
-            await _eliminarArchivoLocal(file, archivo);
-            _errorMessage =
-                'La guía ya existe en el servidor. Se eliminará la copia local.';
-            return false;
-          }
-        }
-
-        _errorMessage = _guiaProvider.error ?? 'Error desconocido del servidor';
-        return false;
-      } catch (uploadError) {
-        LoggerService.error(
-            'Error durante la subida de ${archivo.fileName}: $uploadError');
-        _errorMessage = 'Error durante la subida: $uploadError';
         return false;
       }
     } catch (e) {
-      LoggerService.error(
-          'Error al procesar el archivo ${archivo.fileName}: $e');
-      _errorMessage = 'Error al procesar el archivo: $e';
+      _errorMessage = 'Error al subir el archivo ${archivo.fileName}: $e';
+      LoggerService.error(_errorMessage);
       return false;
     } finally {
       _isUploading = false;
-      _uploadingFileId = null;
-      LoggerService.info(
-          'Finalizado proceso de subida para ${archivo.fileName}');
       notifyListeners();
     }
   }
@@ -825,7 +803,10 @@ class HistorialController extends ChangeNotifier {
 
   // Método para verificar si hay error específico de guía ya existente
   bool get isGuiaExistsError {
-    return _errorMessage.contains('La guía ya existe en el servidor');
+    final errorMsg = _errorMessage.toLowerCase();
+    return errorMsg.contains('ya existe en el servidor') ||
+        errorMsg.contains('código: 500') ||
+        errorMsg.contains('error interno del servidor');
   }
 
   // Método para obtener el mensaje de error y limpiarlo
@@ -836,8 +817,9 @@ class HistorialController extends ChangeNotifier {
   }
 
   // Método privado para eliminar archivos locales
-  Future<void> _eliminarArchivoLocal(File file, GuideFile archivo) async {
+  Future<void> _eliminarArchivoLocal(GuideFile archivo) async {
     try {
+      final file = File(archivo.fullPath);
       if (await file.exists()) {
         await file.delete();
         LoggerService.info(
@@ -853,6 +835,82 @@ class HistorialController extends ChangeNotifier {
 
     // Esperar un momento para asegurar que los cambios del sistema de archivos se reflejen
     await Future.delayed(const Duration(milliseconds: 200));
+  }
+
+  // Método privado para cargar archivos locales
+  Future<void> _cargarArchivosLocales() async {
+    try {
+      // Obtener directorio de guías
+      final Directory guiasDir = await getGuiasDirectory();
+
+      if (!await guiasDir.exists()) {
+        await guiasDir.create(recursive: true);
+        return;
+      }
+
+      final List<GuideFile> tempFiles = [];
+
+      // Limpiar la lista antes de cargar
+      _archivosPdfLocales.clear();
+
+      // Listar archivos en el directorio
+      await for (final FileSystemEntity entity in guiasDir.list()) {
+        try {
+          // Solo procesar archivos que existan y sean PDF
+          if (entity is File &&
+              await entity.exists() &&
+              path.extension(entity.path).toLowerCase() == '.pdf') {
+            final GuideFile archivo = GuideFile.fromFile(entity);
+            tempFiles.add(archivo);
+          }
+        } catch (e) {
+          LoggerService.error('Error al procesar archivo local: $e');
+        }
+      }
+
+      // Ordenar por fecha de creación (más reciente primero)
+      tempFiles.sort((a, b) => b.creationDate.compareTo(a.creationDate));
+
+      // Asignar a la lista de PDFs locales
+      _archivosPdfLocales.addAll(tempFiles);
+    } catch (e) {
+      LoggerService.error('Error al cargar archivos PDF locales: $e');
+    }
+  }
+
+  // Método privado para cargar guías desde el backend
+  Future<void> _cargarGuiasDesdeBackend() async {
+    try {
+      // Cargar guías del backend según el rol de usuario
+      if (isAdmin) {
+        // Administrador: cargar todas las guías
+        await _guiaProvider.loadGuias(all: true);
+      } else {
+        // Usuario normal: cargar solo sus guías
+        final userId = _authProvider.userId;
+        if (userId != null) {
+          await _guiaProvider.loadGuiasByUsuario(userId, all: true);
+        }
+      }
+
+      if (!_mounted) {
+        return;
+      }
+      // Convertir las guías del backend en objetos GuideFile y agregarlos
+      _archivosPdf.addAll(
+          _guiaProvider.guias.map((guia) => GuideFile.fromGuia(guia)).toList());
+
+      // Ordenar por fecha de creación (más reciente primero)
+      _archivosPdf.sort((a, b) => b.creationDate.compareTo(a.creationDate));
+
+      // Después de haber obtenido y ordenado los archivos, inicializar las listas filtradas
+      _applyFilters();
+    } catch (e) {
+      if (!_mounted) {
+        return;
+      }
+      _errorMessage = 'Error al cargar las guías: ${e.toString()}';
+    }
   }
 }
 

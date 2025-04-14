@@ -237,7 +237,16 @@ class GuiaProvider extends ChangeNotifier {
           await _guiaService.uploadGuia(nombre, archivo, idUsuario);
 
       if (_validateResponse(response)) {
-        final guia = Guia.fromJson(response['data']);
+        // El servidor responde con código 201 y devuelve directamente el objeto guía
+        final guiaJson = response['data'] is Map
+            ? response['data']
+            : response['data']
+                ['data']; // Manejo compatible con formatos anteriores
+
+        final guia = Guia.fromJson(guiaJson);
+        LoggerService.info(
+            'Guía subida exitosamente: ${guia.id} - ${guia.nombre}');
+
         _guias.insert(0, guia);
         notifyListeners();
         return guia;
@@ -246,6 +255,7 @@ class GuiaProvider extends ChangeNotifier {
         return null;
       }
     } catch (e) {
+      LoggerService.error('Error en provider al subir guía: ${e.toString()}');
       _setError('Error de conexión: ${e.toString()}');
       return null;
     } finally {

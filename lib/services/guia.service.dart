@@ -66,13 +66,20 @@ class GuiaService {
         ),
       );
 
-      if (response.statusCode == 200 && response.data != null) {
+      // Aceptar tanto 200 como 201 (Created) como códigos de éxito
+      if ((response.statusCode == 200 || response.statusCode == 201) &&
+          response.data != null) {
+        LoggerService.info(
+            'Guía subida exitosamente con código ${response.statusCode}');
         return {
           'success': true,
-          'data': response.data['data'],
+          'data': response
+              .data, // El servidor devuelve directamente los datos sin wrapper
         };
       }
 
+      LoggerService.error(
+          'Error al subir guía - Código: ${response.statusCode}, Mensaje: ${response.data?['message'] ?? 'Desconocido'}');
       return {
         'success': false,
         'message': response.data?['message'] ?? 'Error al subir la guía',
@@ -88,14 +95,16 @@ class GuiaService {
             e.response?.data?['message'] ?? 'Error de conexión: ${e.message}';
       }
 
+      LoggerService.error('DioException al subir guía: $errorMessage');
       return {
         'success': false,
         'message': errorMessage,
       };
     } catch (e) {
+      LoggerService.error('Error inesperado al subir guía: ${e.toString()}');
       return {
         'success': false,
-        'message': 'Error inesperado al subir la guía',
+        'message': 'Error inesperado al subir la guía: ${e.toString()}',
       };
     }
   }

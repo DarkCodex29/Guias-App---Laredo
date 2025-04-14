@@ -206,7 +206,7 @@ class NewGuideController extends ChangeNotifier {
               if (userId == null) {
                 LoggerService.warning(
                     'No se pudo obtener el ID del usuario actual');
-                return;
+                throw Exception('Usuario no autenticado');
               }
 
               LoggerService.info('ID de usuario para subida: $userId');
@@ -218,20 +218,45 @@ class NewGuideController extends ChangeNotifier {
               if (guia != null) {
                 LoggerService.info(
                     'Guía guardada exitosamente en el backend con ID: ${guia.id}');
+
+                // Eliminar el archivo PDF local después de la subida exitosa
+                try {
+                  if (await pdfFile.exists()) {
+                    await pdfFile.delete();
+                    LoggerService.info(
+                        'Archivo PDF local eliminado después de subir al servidor: $_pdfPath');
+                  }
+                } catch (deleteError) {
+                  LoggerService.warning(
+                      'No se pudo eliminar el archivo PDF local después de subirlo: $deleteError');
+                }
               } else {
                 final errorMsg = guiaProvider.error ?? 'Error desconocido';
                 LoggerService.warning(
                     'No se pudo guardar la guía en el backend: $errorMsg');
+
+                // En lugar de solo loggear, lanzamos una excepción específica para manejarla
+                throw Exception('ERROR_BACKEND:$errorMsg');
               }
             } else {
               LoggerService.warning(
                   'El archivo PDF no existe en la ruta: $_pdfPath');
+              throw Exception('El archivo PDF no existe en la ruta: $_pdfPath');
             }
             LoggerService.info('----- FIN: Subida de guía al servidor -----');
           } catch (uploadError) {
-            // Capturamos el error pero no interrumpimos el flujo principal
+            // Ahora manejamos el error aquí, guardando información para el mensaje personalizado
             LoggerService.error(
                 'Error al subir la guía al backend: $uploadError');
+
+            // Si el PDF se generó, pero hubo un error en la subida, lanzamos una excepción específica
+            // que incluye la ruta del PDF para poder mostrar un mensaje personalizado
+            if (_pdfPath.isNotEmpty) {
+              throw Exception(
+                  'ERROR_PDF_GUARDADO:$_pdfPath:${uploadError.toString().replaceAll('Exception: ', '')}');
+            } else {
+              rethrow; // Re-lanzar el error original si no tenemos PDF
+            }
           }
         } else {
           // Si hubo un error, lanzarlo para que lo maneje el bloque catch
@@ -299,6 +324,86 @@ class NewGuideController extends ChangeNotifier {
       }
 
       notifyListeners();
+
+      // Verificar si es un error de PDF generado pero no subido al backend
+      if (e.toString().startsWith('Exception: ERROR_PDF_GUARDADO:')) {
+        // Extraer información del error
+        final errorParts = e
+            .toString()
+            .replaceAll('Exception: ERROR_PDF_GUARDADO:', '')
+            .split(':');
+        final pdfPath = errorParts[0];
+        final errorDetail =
+            errorParts.length > 1 ? errorParts[1] : 'Error desconocido';
+
+        // Guardar la ruta del PDF
+        _pdfPath = pdfPath;
+
+        // Mostrar mensaje de éxito parcial usando ResultadoModal
+        if (context.mounted) {
+          List<Widget> details = [
+            const Text(
+                'La guía se ha generado correctamente y está disponible en su dispositivo.'),
+            const SizedBox(height: 8),
+            const Text('Sin embargo, no se pudo subir al servidor debido a:'),
+            const SizedBox(height: 4),
+            Text(errorDetail,
+                style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            const Text(
+                'Puede encontrar el archivo PDF en la carpeta de Guías y subirlo manualmente más tarde desde la sección de Historial.')
+          ];
+
+          ResultadoModal.showWarning(
+            context,
+            title: 'Guía generada con advertencia',
+            message:
+                'La guía se guardó localmente pero no se pudo subir al servidor.',
+            details: details,
+            onButtonPressed: () {
+              // Reiniciar todos los formularios
+              resetAllFormData();
+              Navigator.pop(context);
+            },
+          );
+          return;
+        }
+      }
+      // Error específico de backend
+      else if (e.toString().startsWith('Exception: ERROR_BACKEND:')) {
+        final errorDetail =
+            e.toString().replaceAll('Exception: ERROR_BACKEND:', '');
+
+        // Mostrar mensaje de éxito parcial usando ResultadoModal
+        if (context.mounted) {
+          List<Widget> details = [
+            const Text(
+                'La guía se ha generado correctamente y está disponible en su dispositivo.'),
+            const SizedBox(height: 8),
+            const Text('Sin embargo, no se pudo subir al servidor debido a:'),
+            const SizedBox(height: 4),
+            Text(errorDetail,
+                style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            const Text(
+                'Puede encontrar el archivo PDF en la carpeta de Guías y subirlo manualmente más tarde desde la sección de Historial.')
+          ];
+
+          ResultadoModal.showWarning(
+            context,
+            title: 'Guía generada con advertencia',
+            message:
+                'La guía se guardó localmente pero no se pudo subir al servidor.',
+            details: details,
+            onButtonPressed: () {
+              // Reiniciar todos los formularios
+              resetAllFormData();
+              Navigator.pop(context);
+            },
+          );
+          return;
+        }
+      }
 
       // Extraer código y descripción del error si es posible
       String errorMessage = e.toString();

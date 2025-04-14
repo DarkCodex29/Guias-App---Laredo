@@ -100,6 +100,7 @@ class EfactService {
 
   // Proceso completo de envío de guía de manera secuencial
   Future<Map<String, dynamic>> processGuide(String filePath) async {
+    String generatedPdfPath = '';
     try {
       LoggerService.info('INICIANDO PROCESAMIENTO DE GUÍA: $filePath');
 
@@ -110,7 +111,7 @@ class EfactService {
             'success': false,
             'code': 'token_error',
             'message': 'Error de autenticación con el servicio de facturación',
-            'pdfPath': '',
+            'pdfPath': generatedPdfPath,
           };
         }
       } catch (authError) {
@@ -130,7 +131,7 @@ class EfactService {
           'success': false,
           'code': errorCode,
           'message': errorMessage,
-          'pdfPath': '',
+          'pdfPath': generatedPdfPath,
         };
       }
 
@@ -142,7 +143,7 @@ class EfactService {
           'success': false,
           'code': 'document_error',
           'message': 'No se obtuvo ticket de envío',
-          'pdfPath': '',
+          'pdfPath': generatedPdfPath,
         };
       }
 
@@ -158,7 +159,7 @@ class EfactService {
           'success': false,
           'code': errorCode,
           'message': errorMessage,
-          'pdfPath': '',
+          'pdfPath': generatedPdfPath,
         };
       }
 
@@ -169,25 +170,25 @@ class EfactService {
           ? filePath.substring(0, filePath.length - 4)
           : filePath;
 
-      final pdfPath = await getPdf(ticket, nombreBaseArchivo);
+      generatedPdfPath = await getPdf(ticket, nombreBaseArchivo);
 
-      if (pdfPath.isEmpty) {
+      if (generatedPdfPath.isEmpty) {
         LoggerService.error('NO SE PUDO GENERAR EL PDF.');
         return {
           'success': false,
           'code': 'pdf_error',
           'message': 'No se pudo generar el PDF',
-          'pdfPath': '',
+          'pdfPath': generatedPdfPath,
         };
       }
 
       LoggerService.info(
-          'PROCESO FINALIZADO EXITOSAMENTE. PDF GENERADO: $pdfPath');
+          'PROCESO FINALIZADO EXITOSAMENTE. PDF GENERADO: $generatedPdfPath');
       return {
         'success': true,
         'code': '0',
         'message': 'Guía procesada correctamente',
-        'pdfPath': pdfPath,
+        'pdfPath': generatedPdfPath,
       };
     } catch (e) {
       LoggerService.error('ERROR EN PROCESAMIENTO DE GUÍA: $e');
@@ -195,7 +196,7 @@ class EfactService {
         'success': false,
         'code': 'process_error',
         'message': 'Error en procesamiento de guía: $e',
-        'pdfPath': '',
+        'pdfPath': generatedPdfPath,
       };
     }
   }
