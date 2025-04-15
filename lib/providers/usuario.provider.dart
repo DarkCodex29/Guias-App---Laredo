@@ -79,13 +79,14 @@ class UsuarioProvider extends ChangeNotifier {
 
   Future<Usuario?> createUsuario(Map<String, dynamic> usuario) async {
     try {
-      final success = await _usuarioService.register(usuario);
-      if (success) {
-        return Usuario.fromJson(usuario);
+      final response = await _usuarioService.register(usuario);
+      if (response != null) {
+        return Usuario.fromJson(response);
       }
       return null;
     } catch (e) {
       _error = e.toString();
+      LoggerService.error('Error al crear usuario: $e');
       return null;
     }
   }

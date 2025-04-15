@@ -7,6 +7,7 @@ import 'registro.usuario.modal.dart';
 import '../../../providers/usuario.provider.dart';
 import '../../widgets/modals/confirmacion.modal.dart';
 import '../../widgets/custom.card.dart';
+import '../../../services/log/logger.service.dart';
 
 class ListaUsuariosPage extends StatelessWidget {
   const ListaUsuariosPage({super.key});
@@ -95,18 +96,51 @@ class _ListaUsuariosViewState extends State<_ListaUsuariosView> {
       floatingActionButton: FloatingActionButton(
         backgroundColor: AppColors.primary,
         onPressed: () {
+          LoggerService.info('Iniciando proceso de registro de usuario');
           showDialog(
             context: context,
             builder: (context) => RegistroUsuarioModal(
               onSubmit: (userData) async {
-                final success = await controller.registrarUsuario(userData);
-                if (!success && context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                        content: Text(controller.errorMessage ??
-                            'Error al registrar usuario')),
-                  );
+                LoggerService.info(
+                    'Datos del formulario recibidos, procesando registro...');
+
+                // Mostrar modal de procesando
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (BuildContext context) => const Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                );
+
+                try {
+                  LoggerService.info('Llamando a registrarUsuario...');
+                  final success = await controller.registrarUsuario(userData);
+                  LoggerService.info('Respuesta de registrarUsuario: $success');
+
+                  if (context.mounted) {
+                    // Cerrar el modal de procesando
+                    Navigator.of(context).pop();
+
+                    if (success) {
+                      LoggerService.info(
+                          'Registro exitoso, mostrando confirmación...');
+                      // No necesitamos mostrar el modal de confirmación aquí ya que el RegistroUsuarioModal lo maneja
+                      await controller.cargarUsuarios();
+                    }
+                  }
+                } catch (e) {
+                  LoggerService.error('Error inesperado: $e');
+                  if (context.mounted) {
+                    // Asegurar que el modal de procesando se cierre
+                    Navigator.of(context).pop();
+                  }
                 }
+              },
+              onSuccess: () async {
+                LoggerService.info(
+                    'Callback onSuccess llamado, actualizando lista...');
+                await controller.cargarUsuarios();
               },
             ),
           );
@@ -392,22 +426,6 @@ class _ListaUsuariosViewState extends State<_ListaUsuariosView> {
           subtitleWidgets: [
             Row(
               children: [
-                const Icon(Icons.email_outlined, size: 14, color: Colors.grey),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    usuario.email,
-                    style: const TextStyle(
-                      color: Colors.grey,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 2),
-            Row(
-              children: [
                 const Icon(Icons.person_outline, size: 14, color: Colors.grey),
                 const SizedBox(width: 4),
                 Expanded(
@@ -553,7 +571,9 @@ class _ListaUsuariosViewState extends State<_ListaUsuariosView> {
                       onSubmit: (userData) async {
                         final success =
                             await controller.actualizarUsuario(userData);
-                        if (!success && context.mounted) {
+                        if (success) {
+                          await controller.cargarUsuarios();
+                        } else if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(controller.errorMessage ??
@@ -563,27 +583,83 @@ class _ListaUsuariosViewState extends State<_ListaUsuariosView> {
                           );
                         }
                       },
+                      onSuccess: () async {
+                        await controller.cargarUsuarios();
+                      },
                     ),
                   );
                 } else if (value == 'eliminar') {
+                  LoggerService.info(
+                      'Iniciando proceso de eliminación para usuario: ${usuario.username}');
+
                   final confirm = await ConfirmacionModal.show(
                     context,
                     title: 'Confirmar eliminación',
-                    message: '¿Desea eliminar al usuario ${usuario.username}?',
+                    message:
+                        '¿Está seguro que desea eliminar al usuario ${usuario.username}?\n\nEsta acción no se puede deshacer.',
                     primaryButtonText: 'Eliminar',
                     secondaryButtonText: 'Cancelar',
                   );
 
-                  if (confirm == true) {
-                    final success = await controller.eliminarUsuario(usuario);
-                    if (!success && context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(controller.errorMessage ??
-                              'Error al eliminar usuario'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
+                  LoggerService.info('Respuesta de confirmación: $confirm');
+
+                  if (confirm == true && context.mounted) {
+                    LoggerService.info('Mostrando modal de procesando...');
+
+                    // Mostrar el modal de procesando
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (BuildContext context) => const Center(
+                        child: CircularProgressIndicator(),
+                      ),
+                    );
+
+                    try {
+                      LoggerService.info('Llamando a eliminarUsuario...');
+                      final success = await controller.eliminarUsuario(usuario);
+                      LoggerService.info(
+                          'Respuesta de eliminarUsuario: $success');
+
+                      if (context.mounted) {
+                        // Cerrar el modal de procesando
+                        Navigator.of(context).pop();
+
+                        if (success) {
+                          LoggerService.info(
+                              'Eliminación exitosa, mostrando confirmación...');
+                          await ConfirmacionModal.show(
+                            context,
+                            title: 'Usuario eliminado',
+                            message:
+                                'El usuario ha sido eliminado correctamente.',
+                            primaryButtonText: 'Aceptar',
+                          );
+                          await controller.cargarUsuarios();
+                        } else {
+                          LoggerService.error(
+                              'Error en eliminación, mostrando error...');
+                          await ConfirmacionModal.show(
+                            context,
+                            title: 'Error',
+                            message: controller.errorMessage ??
+                                'Error al eliminar usuario',
+                            primaryButtonText: 'Aceptar',
+                          );
+                        }
+                      }
+                    } catch (e) {
+                      LoggerService.error('Error inesperado: $e');
+                      if (context.mounted) {
+                        // Asegurar que el modal de procesando se cierre
+                        Navigator.of(context).pop();
+                        await ConfirmacionModal.show(
+                          context,
+                          title: 'Error',
+                          message: 'Ocurrió un error inesperado: $e',
+                          primaryButtonText: 'Aceptar',
+                        );
+                      }
                     }
                   }
                 }

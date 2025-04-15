@@ -3,120 +3,199 @@ import '../../widgets/custom.modal.dart';
 import '../../widgets/custom.textfield.dart';
 import 'package:provider/provider.dart';
 import 'package:app_guias/presentation/controllers/usuarios/registro.usuario.controller.dart';
-import 'package:app_guias/presentation/widgets/modals/confirmacion.modal.dart';
+import '../../../core/constants/app.colors.dart';
 
-class RegistroUsuarioModal extends StatelessWidget {
+class RegistroUsuarioModal extends StatefulWidget {
   final Function(Map<String, String>) onSubmit;
   final String title;
   final dynamic usuario;
+  final VoidCallback onSuccess;
 
   const RegistroUsuarioModal({
     super.key,
     required this.onSubmit,
+    required this.onSuccess,
     this.title = 'Registro de usuario',
     this.usuario,
   });
 
-  Future<void> _handleSubmit(
-      BuildContext context, RegistroUsuarioController controller) async {
-    // Validar el formulario
-    if (controller.formKey.currentState!.validate()) {
-      final bool isUpdate = usuario != null;
+  @override
+  _RegistroUsuarioModalState createState() => _RegistroUsuarioModalState();
+}
 
-      // 1. Iniciar la operación y obtener respuesta
-      bool success;
-
-      // Guardar los providers que necesitamos antes de operaciones asíncronas
-      controller.prepareProviders(context);
-
-      try {
-        success =
-            isUpdate ? await controller.update() : await controller.register();
-      } catch (e) {
-        if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}')),
-        );
-        return;
-      }
-
-      // 2. Verificar si el widget sigue montado
-      if (!context.mounted) return;
-
-      // 3. Mostrar confirmación si fue exitoso
-      if (success) {
-        await ConfirmacionModal.show(
-          context,
-          title: 'Éxito',
-          message: isUpdate
-              ? 'Usuario actualizado correctamente'
-              : 'Usuario registrado correctamente',
-          primaryButtonText: 'Aceptar',
-        );
-
-        // 4. Verificar nuevamente si el widget sigue montado
-        if (!context.mounted) return;
-
-        // 5. Enviar datos y cerrar modal
-        onSubmit({
-          'id': usuario?.id?.toString() ?? '0',
-          'username': controller.usernameController.text.trim(),
-          'password': controller.passwordController.text.isEmpty && isUpdate
-              ? usuario.contrasena
-              : controller.passwordController.text,
-          'email': controller.emailController.text.trim(),
-          'names': controller.nombresController.text.trim(),
-          'surnames': controller.apellidosController.text.trim(),
-          'role': controller.roleController.text == 'Usuario'
-              ? 'USUARIO'
-              : 'ADMINISTRADOR',
-          'fechaCreacion': usuario?.fechaCreacion?.toIso8601String() ??
-              DateTime.now().toIso8601String(),
-        });
-        Navigator.of(context).pop(true);
-      }
-    }
-  }
+class _RegistroUsuarioModalState extends State<RegistroUsuarioModal> {
+  final _formKey = GlobalKey<FormState>();
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => RegistroUsuarioController(usuario: usuario),
+      create: (_) => RegistroUsuarioController(usuario: widget.usuario),
       child: Builder(
         builder: (context) {
-          final controller = context.watch<RegistroUsuarioController>();
           final size = MediaQuery.of(context).size;
           final isDesktop = size.width > 600;
-          final double modalWidth =
-              isDesktop ? 500 : size.width * 0.9; // Ancho fijo para desktop
+          final double modalWidth = isDesktop ? 500 : size.width * 0.9;
+          final controller = context.watch<RegistroUsuarioController>();
 
           return CustomModal(
-            title: title,
-            width: modalWidth, // Pasar el ancho calculado al CustomModal
-            primaryButtonText: usuario != null ? 'Actualizar' : 'Registrar',
+            title: widget.title,
+            width: modalWidth,
+            primaryButtonText:
+                widget.usuario != null ? 'Actualizar' : 'Registrar',
             secondaryButtonText: 'Cancelar',
             onPrimaryButtonPressed: controller.isLoading
                 ? null
-                : () => _handleSubmit(context, controller),
+                : () async {
+                    if (_formKey.currentState!.validate()) {
+                      controller.prepareProviders(context);
+
+                      final userData = {
+                        'username': controller.usernameController.text.trim(),
+                        'password': controller.passwordController.text,
+                        'names': controller.nombresController.text.trim(),
+                        'surnames': controller.apellidosController.text.trim(),
+                        'role': controller.roleController.text == 'Usuario'
+                            ? 'USUARIO'
+                            : 'ADMINISTRADOR',
+                        'email':
+                            'usuario.${controller.usernameController.text.trim().toLowerCase()}@appguias.com',
+                      };
+
+                      if (widget.usuario != null) {
+                        userData['id'] = widget.usuario.id;
+                      }
+
+                      showDialog(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (context) =>
+                            const Center(child: CircularProgressIndicator()),
+                      );
+
+                      try {
+                        final success = widget.usuario != null
+                            ? await controller.update()
+                            : await controller.register(userData);
+
+                        if (!mounted) return;
+                        Navigator.of(context)
+                            .pop(); // Cierra el indicador de progreso
+
+                        if (success) {
+                          // Cerrar el modal de registro
+                          Navigator.of(context).pop();
+
+                          // Llamar al callback de éxito para actualizar la lista
+                          widget.onSuccess();
+
+                          // Mostrar modal de confirmación con el mismo estilo
+                          if (!mounted) return;
+                          await showDialog(
+                            context: context,
+                            builder: (context) => Dialog(
+                              backgroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(24.0),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Text(
+                                      'Éxito',
+                                      style: TextStyle(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      widget.usuario != null
+                                          ? 'Usuario actualizado exitosamente'
+                                          : 'Usuario registrado exitosamente',
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        color: Colors.black54,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 24),
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: ElevatedButton(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: AppColors.primary,
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(
+                                              vertical: 16),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                          ),
+                                        ),
+                                        onPressed: () =>
+                                            Navigator.of(context).pop(),
+                                        child: const Text('Aceptar'),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        } else {
+                          // Extraer solo el mensaje del error
+                          String errorMsg = controller.error ?? '';
+                          if (errorMsg.contains('{message:')) {
+                            errorMsg = errorMsg.split('{message:')[1];
+                            errorMsg = errorMsg.split('}')[0].trim();
+                          }
+                          controller.error = errorMsg;
+                        }
+                      } catch (e) {
+                        if (!mounted) return;
+                        Navigator.of(context)
+                            .pop(); // Cierra el indicador de progreso
+
+                        // Formatear y mostrar solo el mensaje de error
+                        String errorMsg = e.toString();
+                        if (errorMsg.contains('{message:')) {
+                          errorMsg = errorMsg.split('{message:')[1];
+                          errorMsg = errorMsg.split('}')[0].trim();
+                        }
+                        controller.error = errorMsg;
+                      }
+                    }
+                  },
             content: SingleChildScrollView(
               child: Padding(
                 padding: const EdgeInsets.only(right: 8.0),
                 child: Form(
-                  key: controller.formKey,
+                  key: _formKey,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (controller.error != null)
                         Container(
-                          padding: const EdgeInsets.all(10),
-                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.all(8),
+                          margin: const EdgeInsets.only(bottom: 16),
                           decoration: BoxDecoration(
-                            color: Colors.red[100],
-                            borderRadius: BorderRadius.circular(5),
+                            color: Colors.red.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                          child: Text(
-                            controller.error!,
-                            style: const TextStyle(color: Colors.red),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.error_outline,
+                                  color: Colors.red),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  controller.error!,
+                                  style: const TextStyle(color: Colors.red),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       CustomTextField(
@@ -124,50 +203,55 @@ class RegistroUsuarioModal extends StatelessWidget {
                         label: 'Usuario',
                         hint: 'Ingrese el usuario',
                         validator: controller.validateRequired,
+                        enabled: !controller.isLoading,
+                        textInputAction: TextInputAction.next,
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 16),
                       CustomTextField(
                         controller: controller.passwordController,
                         label: 'Contraseña',
-                        hint: usuario != null
+                        hint: widget.usuario != null
                             ? 'Dejar vacío para mantener la contraseña actual'
                             : 'Ingrese la contraseña',
                         type: TextFieldType.password,
-                        validator: usuario != null
-                            ? null // No validar contraseña en modo edición
+                        validator: widget.usuario != null
+                            ? null
                             : controller.validatePassword,
+                        enabled: !controller.isLoading,
+                        textInputAction: TextInputAction.next,
                       ),
-                      const SizedBox(height: 8),
-                      CustomTextField(
-                        controller: controller.emailController,
-                        label: 'Email',
-                        hint: 'Ingrese el email',
-                        validator: controller.validateEmail,
-                      ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 16),
                       CustomTextField(
                         controller: controller.nombresController,
                         label: 'Nombres',
                         hint: 'Ingrese los nombres',
                         validator: controller.validateRequired,
+                        enabled: !controller.isLoading,
+                        textInputAction: TextInputAction.next,
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 16),
                       CustomTextField(
                         controller: controller.apellidosController,
                         label: 'Apellidos',
                         hint: 'Ingrese los apellidos',
                         validator: controller.validateRequired,
+                        enabled: !controller.isLoading,
+                        textInputAction: TextInputAction.next,
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 16),
                       CustomTextField(
                         controller: controller.roleController,
                         label: 'Rol',
                         hint: 'Seleccione el rol',
+                        readOnly: true,
+                        enabled: !controller.isLoading,
+                        enableSuggestions: true,
                         suggestions: const ['Usuario', 'Administrador'],
                         onSuggestionSelected: (value) {
                           controller.setRole(
                               value == 'Usuario' ? 'USUARIO' : 'ADMINISTRADOR');
                         },
+                        validator: controller.validateRequired,
                       ),
                     ],
                   ),

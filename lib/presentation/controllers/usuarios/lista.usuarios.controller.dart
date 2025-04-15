@@ -4,6 +4,7 @@ import '../../../models/usuario.dart';
 import '../../../providers/auth.provider.dart';
 import '../../../providers/usuario.provider.dart';
 import 'package:file_picker/file_picker.dart';
+import '../../../services/log/logger.service.dart';
 
 class ListaUsuariosController extends ChangeNotifier {
   final AuthProvider _authProvider;
@@ -107,14 +108,25 @@ class ListaUsuariosController extends ChangeNotifier {
     _setError(null);
 
     try {
+      LoggerService.info(
+          'Iniciando eliminación de usuario: ${usuario.username}');
+
       final success = await _usuarioProvider.deleteUsuario(usuario.id);
+
+      LoggerService.info(
+          'Respuesta del servidor - eliminación de usuario: $success');
+
       if (success) {
+        LoggerService.info('Usuario eliminado correctamente');
         await cargarUsuarios();
         return true;
       }
+
       _setError('No se pudo eliminar el usuario');
+      LoggerService.error('Error al eliminar usuario: No se pudo eliminar');
       return false;
     } catch (e) {
+      LoggerService.error('Error al eliminar usuario: $e');
       _setError(e.toString());
       return false;
     } finally {
@@ -124,6 +136,8 @@ class ListaUsuariosController extends ChangeNotifier {
 
   Future<bool> registrarUsuario(Map<String, String> userData) async {
     try {
+      LoggerService.info(
+          'Iniciando registro de usuario con datos: ${userData.toString()}');
       _isLoading = true;
       _errorMessage = null;
       notifyListeners();
@@ -135,25 +149,31 @@ class ListaUsuariosController extends ChangeNotifier {
         "apellidos": userData['surnames'] ?? '',
         "contraseña": userData['password'] ?? '',
         "rol": userData['role'] ?? 'USUARIO',
-        "email": userData['email'] ?? '',
+        "email": 'usuario@example.com',
         "estado": "1",
         "fechA_CREACION": DateTime.now().toIso8601String(),
         "fechA_ACTUALIZACION": null,
         "guias": []
       };
 
+      LoggerService.info('Llamando al servicio de registro...');
       final success = await _usuarioProvider.createUsuario(usuario);
 
+      LoggerService.info('Respuesta del servicio de registro: $success');
+
       if (success != null) {
+        LoggerService.info('Usuario registrado correctamente');
         await cargarUsuarios();
         return true;
       }
 
       _errorMessage =
           _usuarioProvider.error ?? 'No se pudo registrar el usuario';
+      LoggerService.error('Error al registrar usuario: $_errorMessage');
       return false;
     } catch (e) {
       _errorMessage = e.toString();
+      LoggerService.error('Error inesperado al registrar usuario: $e');
       return false;
     } finally {
       _isLoading = false;

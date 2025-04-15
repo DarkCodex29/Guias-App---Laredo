@@ -106,17 +106,23 @@ class UsuarioService {
 
   Future<bool> deleteUsuario(int id) async {
     try {
+      LoggerService.info('Iniciando petición DELETE para usuario ID: $id');
+
       final response = await _dio.delete(
         ApiEndpoints.usuarioById.replaceAll('{id}', id.toString()),
       );
 
-      LoggerService.info('Respuesta eliminar usuario: ${response.statusCode}');
+      LoggerService.info(
+          'Respuesta del servidor - Status: ${response.statusCode}, Data: ${response.data}');
 
       // 204 significa éxito sin contenido
       if (response.statusCode == 200 || response.statusCode == 204) {
+        LoggerService.info('Usuario eliminado correctamente');
         return true;
       }
 
+      LoggerService.error(
+          'Error al eliminar usuario: Status ${response.statusCode}');
       throw Exception('Error al eliminar usuario: ${response.statusCode}');
     } catch (e) {
       LoggerService.error('Error al eliminar usuario: $e');
@@ -124,20 +130,30 @@ class UsuarioService {
     }
   }
 
-  Future<bool> register(Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>?> register(Map<String, dynamic> data) async {
     try {
+      LoggerService.info('Iniciando petición POST para registro de usuario');
+      LoggerService.info('Datos a enviar: $data');
+
       final response = await _dio.post(
         ApiEndpoints.registroUsuario,
         data: data,
       );
 
+      LoggerService.info(
+          'Respuesta del servidor - Status: ${response.statusCode}, Data: ${response.data}');
+
       if (response.statusCode == 200 || response.statusCode == 201) {
-        return true;
+        LoggerService.info('Usuario registrado correctamente');
+        return response.data;
       }
 
+      LoggerService.error(
+          'Error al registrar usuario: Status ${response.statusCode}');
       throw Exception(
           'Error al registrar usuario: ${response.statusCode} - ${response.data}');
     } catch (e) {
+      LoggerService.error('Error al registrar usuario: $e');
       throw Exception('Error al registrar usuario: $e');
     }
   }

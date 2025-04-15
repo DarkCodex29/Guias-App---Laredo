@@ -174,14 +174,16 @@ class HistorialController extends ChangeNotifier {
 
     // Determinar si el usuario es administrador
     final isAdmin = _authProvider.role == 'ADMINISTRADOR';
+    // Determinar si es desktop
+    final isDesktop = MediaQuery.of(context).size.width > 600;
 
     // Establecer estados de carga para mostrar Shimmer
     _isLoadingPagePDF = true;
     _isLoadingPageCSV = true;
     notifyListeners();
 
-    // Cargar las guías apropiadas según el rol
-    cargarArchivos(isAdmin: isAdmin);
+    // Cargar las guías apropiadas según el rol y plataforma
+    cargarArchivos(isAdmin: isAdmin || isDesktop);
   }
 
   Future<void> cargarArchivos({bool isAdmin = false}) async {
@@ -467,12 +469,16 @@ class HistorialController extends ChangeNotifier {
       // Cargar archivos PDF locales
       await _cargarArchivosPdfLocales();
 
-      // Cargar guías del backend según el rol de usuario
-      if (isAdmin) {
-        // Administrador: cargar todas las guías
+      // Determinar si es desktop
+      final isDesktop =
+          MediaQuery.of(navigatorKey.currentContext!).size.width > 600;
+
+      // Cargar guías del backend según el rol de usuario y plataforma
+      if (isAdmin || isDesktop) {
+        // Administrador o Desktop: cargar todas las guías
         await _guiaProvider.loadGuias(all: true);
       } else {
-        // Usuario normal: cargar solo sus guías
+        // Usuario normal en móvil: cargar solo sus guías
         final userId = _authProvider.userId;
         if (userId != null) {
           await _guiaProvider.loadGuiasByUsuario(userId, all: true);
@@ -889,12 +895,16 @@ class HistorialController extends ChangeNotifier {
   // Método privado para cargar guías desde el backend
   Future<void> _cargarGuiasDesdeBackend() async {
     try {
-      // Cargar guías del backend según el rol de usuario
-      if (isAdmin) {
-        // Administrador: cargar todas las guías
+      // Determinar si es desktop
+      final isDesktop =
+          MediaQuery.of(navigatorKey.currentContext!).size.width > 600;
+
+      // Cargar guías del backend según el rol de usuario y plataforma
+      if (isAdmin || isDesktop) {
+        // Administrador o Desktop: cargar todas las guías
         await _guiaProvider.loadGuias(all: true);
       } else {
-        // Usuario normal: cargar solo sus guías
+        // Usuario normal en móvil: cargar solo sus guías
         final userId = _authProvider.userId;
         if (userId != null) {
           await _guiaProvider.loadGuiasByUsuario(userId, all: true);

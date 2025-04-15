@@ -29,15 +29,17 @@ class Usuario {
 
   factory Usuario.fromJson(Map<String, dynamic> json) {
     return Usuario(
-      id: json['id'] as int,
+      id: json['id'] as int? ?? 0,
       username: json['username'] as String,
-      nombres: json['nombres'] as String,
-      apellidos: json['apellidos'] as String,
+      nombres: json['nombres'] as String? ?? '',
+      apellidos: json['apellidos'] as String? ?? '',
       contrasena: json['contraseña'] as String?,
-      rol: json['rol'] as String,
+      rol: json['rol'] as String? ?? json['role'] as String? ?? 'USUARIO',
       email: json['email'] as String,
-      estado: json['estado'] as String,
-      fechaCreacion: DateTime.parse(json['fechA_CREACION'] as String),
+      estado: json['estado'] as String? ?? 'ACTIVO',
+      fechaCreacion: json['fechA_CREACION'] != null
+          ? DateTime.parse(json['fechA_CREACION'] as String)
+          : DateTime.now(),
       fechaActualizacion: json['fechA_ACTUALIZACION'] != null
           ? DateTime.parse(json['fechA_ACTUALIZACION'] as String)
           : null,
