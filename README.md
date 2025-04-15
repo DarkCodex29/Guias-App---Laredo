@@ -22,7 +22,11 @@ Aplicación multiplataforma desarrollada con Flutter para la gestión integral d
 - **Generación de guías de remisión**: Creación automatizada de documentos según especificaciones SUNAT
 - **Integración con EFACT**: Emisión electrónica de guías conectada con OSE autorizado
 - **Soporte multiusuario**: Sistema adaptado para diferentes roles y permisos
-- **Multiplaforma**: Aplicación disponible para Android e iOS
+- **Multiplaforma**: Aplicación disponible para Android y Desktop (Windows y Android)
+- **Interfaz adaptativa**: Diseño responsivo que se adapta a diferentes tamaños de pantalla
+- **Modo escritorio**: Interfaz optimizada para pantallas grandes con funcionalidades adicionales
+- **Almacenamiento local**: Gestión de archivos adaptada a cada plataforma
+- **Tema oscuro**: Soporte para modo oscuro en sistemas operativos de escritorio
 
 ## 🚀 Instalación
 
@@ -32,6 +36,9 @@ Aplicación multiplataforma desarrollada con Flutter para la gestión integral d
 - Dart SDK 2.12 o superior
 - Conexión a Internet para descarga de dependencias
 - Acceso a Firebase para configuración de servicios
+- Para Windows:
+  - Windows 10 o superior
+  - Visual Studio 2019 o superior con soporte para desarrollo de escritorio
 
 ### Pasos de instalación
 
@@ -67,7 +74,7 @@ Aplicación multiplataforma desarrollada con Flutter para la gestión integral d
 5. Ejecuta la aplicación:
    ```bash
    flutter run -d android   # Para Android
-   flutter run -d ios       # Para iOS
+   flutter run -d windows   # Para Windows
    flutter run              # Para dispositivo predeterminado
    ```
 
