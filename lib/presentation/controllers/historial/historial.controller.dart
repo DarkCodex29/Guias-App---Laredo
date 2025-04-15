@@ -9,6 +9,8 @@ import 'package:app_guias/providers/auth.provider.dart';
 import 'package:app_guias/models/guia.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:app_guias/services/log/logger.service.dart';
+import 'package:app_guias/presentation/widgets/modals/procesando.modal.dart';
+import 'package:app_guias/presentation/widgets/modals/resultado.modal.dart';
 
 class GuideFile {
   final String fileName;
@@ -131,6 +133,8 @@ class HistorialController extends ChangeNotifier {
 
   final TextEditingController searchController = TextEditingController();
 
+  final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
   // Getters
   List<GuideFile> get archivosPdf => _archivosPdf;
   List<GuideFile> get archivosCsv => _archivosCsv;
@@ -187,6 +191,9 @@ class HistorialController extends ChangeNotifier {
 
     _isLoading = true;
     _errorMessage = '';
+    // Establecer estados de carga para mostrar Shimmer
+    _isLoadingPagePDF = true;
+    _isLoadingPageCSV = true;
     notifyListeners();
 
     try {
@@ -770,7 +777,8 @@ class HistorialController extends ChangeNotifier {
           _eliminarArchivoLocal(archivo);
 
           // Recargar solo la lista de archivos locales
-          _cargarArchivosLocales();
+          //_cargarArchivosLocales();
+          await cargarArchivos(isAdmin: isAdmin);
         } else {
           _errorMessage =
               'Error del servidor al subir ${archivo.fileName}: ${_guiaProvider.error}';
@@ -910,6 +918,201 @@ class HistorialController extends ChangeNotifier {
         return;
       }
       _errorMessage = 'Error al cargar las guías: ${e.toString()}';
+    }
+  }
+
+  // Método simplificado para subir archivo con modal, siguiendo exactamente el patrón de NewGuideController
+  Future<bool> subirArchivoConModal(
+      BuildContext context, GuideFile archivo) async {
+    LoggerService.info(
+        'Iniciando subida de archivo con modal: ${archivo.fileName}');
+
+    if (!context.mounted) {
+      LoggerService.warning(
+          'Contexto no montado al iniciar subirArchivoConModal');
+      return false;
+    }
+
+    // Guardar referencia al contexto original y navigator
+    final NavigatorState navigator = Navigator.of(context, rootNavigator: true);
+    // Guardar una referencia adicional del contexto global para usar después
+    final BuildContext originalContext = context;
+
+    // Mostrar modal de procesamiento (exactamente como NewGuideController)
+    ProcesandoModal.show(
+      context,
+      title: 'Subiendo guía',
+      message: 'Subiendo archivo al servidor...',
+    );
+
+    try {
+      LoggerService.info(
+          'Modal mostrado, procesando archivo: ${archivo.fileName}');
+
+      // Subir el archivo
+      final success = await subirArchivoLocal(archivo);
+
+      LoggerService.info(
+          'Subida ${success ? "exitosa" : "fallida"}, cerrando modal...');
+
+      // Cerrar modal usando el navigator guardado
+      try {
+        if (navigator.mounted) {
+          navigator.pop();
+          LoggerService.info(
+              'Modal cerrado correctamente usando navigator global');
+        } else if (context.mounted) {
+          Navigator.of(context).pop();
+          LoggerService.info('Modal cerrado correctamente usando context');
+        } else {
+          LoggerService.warning(
+              'Contexto no montado al intentar cerrar modal, usando timer de seguridad');
+          // No podemos cerrar el modal aquí, se manejará con un timer
+        }
+      } catch (navError) {
+        LoggerService.error('Error al intentar cerrar el modal: $navError');
+      }
+
+      // Verificar si es un error de guía duplicada (hacer esto antes de verificar el contexto)
+      final bool esGuiaDuplicada = !success && isGuiaExistsError;
+
+      if (esGuiaDuplicada) {
+        LoggerService.info(
+            'Guía duplicada detectada, eliminando archivo local');
+
+        // Eliminar archivo y actualizar lista - esto debe hacerse independientemente del contexto
+        await _eliminarArchivoLocal(archivo);
+        await cargarArchivos(isAdmin: isAdmin);
+      }
+
+      // Esperar un momento para asegurar que el Navigator se estabilice
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      // Buscar un contexto válido para mostrar modales
+      BuildContext? contextToUse;
+      if (originalContext.mounted) {
+        contextToUse = originalContext;
+        LoggerService.info('Usando contexto original para mostrar modal');
+      } else {
+        // Intentar usar el contexto del navigatorKey global
+        contextToUse = navigatorKey.currentContext;
+        LoggerService.info('Intentando usar contexto global del navigatorKey');
+      }
+
+      // Si el contexto ya no está montado, intentar obtener uno nuevo
+      if (contextToUse == null || !contextToUse.mounted) {
+        LoggerService.warning(
+            'No se encontró un contexto válido para mostrar modal');
+
+        try {
+          // Si tenemos el navigatorKey y está montado, usamos su contexto actual
+          if (navigator.mounted) {
+            contextToUse = navigator.context;
+            LoggerService.info(
+                'Usando contexto del navigator global para mostrar modal');
+          }
+        } catch (e) {
+          LoggerService.error(
+              'Error al intentar acceder al contexto del navigator: $e');
+        }
+      }
+
+      // Si aún no tenemos un contexto válido, regresamos el resultado
+      if (contextToUse == null || !contextToUse.mounted) {
+        LoggerService.warning(
+            'No se pudo encontrar un contexto válido para mostrar cualquier tipo de modal');
+        return success || esGuiaDuplicada;
+      }
+
+      // Mostrar el modal adecuado según el resultado
+      if (success) {
+        // Actualizar la lista
+        await cargarArchivos(isAdmin: isAdmin);
+
+        // Mostrar éxito
+        await ResultadoModal.showSuccess(
+          contextToUse,
+          title: 'Éxito',
+          message: 'Archivo subido exitosamente',
+        );
+        return true;
+      } else if (esGuiaDuplicada) {
+        // Ya hemos eliminado el archivo y actualizado la lista arriba
+
+        LoggerService.info('Mostrando modal de advertencia de guía duplicada');
+        // Mostrar advertencia
+        await ResultadoModal.showWarning(
+          contextToUse,
+          title: 'Guía ya registrada',
+          message:
+              'Esta guía ya existe en el servidor y se ha eliminado de su dispositivo.',
+          details: [
+            const Text(
+                'La guía detectada ya se encuentra registrada en el servidor.'),
+            const SizedBox(height: 8),
+            const Text(
+                'El archivo local ha sido eliminado para evitar duplicados.'),
+          ],
+        );
+        return true;
+      } else {
+        final errorMsg = getErrorAndClear();
+
+        // Mostrar error
+        await ResultadoModal.showError(
+          contextToUse,
+          title: 'Error',
+          message: 'No se pudo subir el archivo',
+          details: [Text(errorMsg)],
+        );
+        return false;
+      }
+    } catch (e) {
+      LoggerService.error('Excepción en subirArchivoConModal: $e');
+
+      // Cerrar modal usando el navigator guardado para mayor seguridad
+      try {
+        if (navigator.mounted) {
+          navigator.pop();
+          LoggerService.info(
+              'Modal cerrado después de excepción usando navigator global');
+        } else if (context.mounted) {
+          Navigator.of(context).pop();
+          LoggerService.info('Modal cerrado después de excepción');
+        } else {
+          LoggerService.warning(
+              'No se pudo cerrar el modal después de la excepción');
+        }
+      } catch (navError) {
+        LoggerService.error(
+            'Error al intentar cerrar el modal después de excepción: $navError');
+      }
+
+      // Esperar un momento para asegurar que el Navigator se estabilice
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      // Buscar un contexto válido para mostrar el modal de error
+      BuildContext? contextForError;
+      if (originalContext.mounted) {
+        contextForError = originalContext;
+      } else {
+        contextForError = navigatorKey.currentContext;
+      }
+
+      if (contextForError != null && contextForError.mounted) {
+        // Mostrar error
+        await ResultadoModal.showError(
+          contextForError,
+          title: 'Error',
+          message: 'Ocurrió un error inesperado',
+          details: [Text(e.toString())],
+        );
+      } else {
+        LoggerService.error(
+            'No se pudo mostrar el modal de error: no hay contexto disponible');
+      }
+
+      return false;
     }
   }
 }

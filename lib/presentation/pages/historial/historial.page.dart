@@ -7,8 +7,6 @@ import 'package:app_guias/providers/auth.provider.dart';
 import 'package:app_guias/presentation/widgets/custom.card.dart';
 import 'package:app_guias/presentation/widgets/custom.card.shimmer.dart';
 import 'package:app_guias/presentation/widgets/custom.textfield.dart';
-import 'package:app_guias/presentation/widgets/modals/procesando.modal.dart';
-import 'package:app_guias/presentation/widgets/modals/resultado.modal.dart';
 
 class HistorialPage extends StatelessWidget {
   const HistorialPage({super.key});
@@ -485,103 +483,8 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
                         // Verificar si se confirmó la subida
                         if (confirmResult != true || !context.mounted) return;
 
-                        // Guardar las listas actuales para poder restaurarlas en caso de error
-                        final currentPdfFiles =
-                            List<GuideFile>.from(controller.filteredPdfFiles);
-                        final currentCsvFiles =
-                            List<GuideFile>.from(controller.filteredCsvFiles);
-
-                        // Mostrar modal de procesamiento
-                        ProcesandoModal.show(
-                          context,
-                          title: 'Subiendo guía',
-                          message: 'Subiendo archivo al servidor...',
-                        );
-
-                        try {
-                          // Limpiar cualquier error previo
-                          controller.clearError();
-
-                          // Subir el archivo
-                          final success =
-                              await controller.subirArchivoLocal(archivo);
-
-                          // Asegurarnos de cerrar el modal de procesamiento
-                          if (context.mounted) {
-                            Navigator.of(context).pop();
-                          }
-
-                          if (!context.mounted) return;
-
-                          if (success) {
-                            // Actualizar la lista después de una subida exitosa
-                            await controller.cargarArchivos(
-                                isAdmin: controller.isAdmin);
-
-                            // Subida exitosa - mostrar después de actualizar la lista
-                            if (context.mounted) {
-                              await ResultadoModal.showSuccess(
-                                context,
-                                title: 'Éxito',
-                                message: 'Archivo subido exitosamente',
-                              );
-                            }
-                          } else {
-                            final errorMsg = controller.getErrorAndClear();
-
-                            // Si el error contiene el mensaje de guía existente
-                            if (controller.isGuiaExistsError) {
-                              await ResultadoModal.showError(
-                                context,
-                                title: 'Guía ya registrada',
-                                message: errorMsg,
-                                onButtonPressed: () {
-                                  Navigator.of(context).pop();
-                                },
-                              );
-                              // Actualizar la lista después de eliminar el archivo local
-                              await controller.cargarArchivos(
-                                  isAdmin: controller.isAdmin);
-                            } else {
-                              // Para otros tipos de errores
-                              await ResultadoModal.showError(
-                                context,
-                                title: 'Error',
-                                message: 'No se pudo subir el archivo',
-                                details: [Text(errorMsg)],
-                                onButtonPressed: () {
-                                  Navigator.of(context).pop();
-                                },
-                              );
-                              // Restaurar las listas originales
-                              controller.restoreFilesState(
-                                  currentPdfFiles, currentCsvFiles);
-                            }
-                          }
-                        } catch (e) {
-                          // Cerrar el modal de procesamiento si sigue abierto
-                          if (context.mounted) {
-                            Navigator.of(context).pop();
-                          }
-
-                          if (!context.mounted) return;
-
-                          // Mostrar error inesperado
-                          await ResultadoModal.showError(
-                            context,
-                            title: 'Error',
-                            message: 'Ocurrió un error inesperado',
-                            details: [Text(e.toString())],
-                            onButtonPressed: () {
-                              Navigator.of(context).pop();
-                            },
-                          );
-                          controller.clearError();
-
-                          // Restaurar las listas originales
-                          controller.restoreFilesState(
-                              currentPdfFiles, currentCsvFiles);
-                        }
+                        // Delegar al controlador para manejar todo el proceso de subida
+                        await controller.subirArchivoConModal(context, archivo);
                       },
                 tooltip: 'Subir al backend',
               ),
