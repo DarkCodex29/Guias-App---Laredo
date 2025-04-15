@@ -22,19 +22,17 @@ class MotivoTrasladoController extends ChangeNotifier {
   // Índice de motivos de traslado con sus códigos
   final Map<String, String> motivos = {
     '01': 'Venta',
-    '02': 'Venta sujeta a confirmación del comprador',
-    '03': 'Compra',
-    '04': 'Consignación',
-    '05': 'Devolución',
-    '06': 'Traslado entre establecimientos de la misma empresa',
-    '07': 'Traslado de bienes para transformación',
-    '08': 'Recojo de bienes',
-    '09': 'Traslado por emisor itinerante de comprobantes de pago',
-    '10': 'Traslado zona primaria',
-    '11': 'Importación',
-    '12': 'Exportación',
-    '13': 'Venta con entrega a terceros',
-    '14': 'Otros',
+    '02': 'Compra',
+    '03': 'Venta con entrega a terceros',
+    '04': 'Traslado entre establecimientos de la misma empresa',
+    '06': 'Devolucion',
+    '08': 'Importacion',
+    '09': 'Exportacion',
+    '13': 'Otros',
+    '14': 'Traslado emisor itinerante CP',
+    '15': 'Venta sujeta a confirmación del comprador',
+    '16': 'Recojo de bienes transformados',
+    '17': 'Traslado de bienes para transformación',
   };
 
   // Lista de modalidades de traslado con sus códigos
@@ -110,7 +108,7 @@ class MotivoTrasladoController extends ChangeNotifier {
       // Establecer valores por defecto al inicializar
       modalidadTraslado.text = modalidades['02']!; // 'Privado'
       motivoTraslado.text =
-          motivos['07']!; // 'Traslado de bienes para transformación'
+          motivos['17']!; // 'Traslado de bienes para transformación'
 
       // Marcar campos como tocados para validación
       _touchedFields.add('modalidadTraslado');
@@ -125,7 +123,7 @@ class MotivoTrasladoController extends ChangeNotifier {
     // Establecer valores por defecto estándar para la empresa
     modalidadTraslado.text = modalidades['02']!; // 'Privado'
     motivoTraslado.text =
-        motivos['07']!; // 'Traslado de bienes para transformación'
+        motivos['17']!; // 'Traslado de bienes para transformación'
 
     // Limpiar errores y campos tocados
     _errors.forEach((key, _) => _errors[key] = null);
