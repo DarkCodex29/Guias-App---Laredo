@@ -469,9 +469,16 @@ class HistorialController extends ChangeNotifier {
       // Cargar archivos PDF locales
       await _cargarArchivosPdfLocales();
 
-      // Determinar si es desktop
-      final isDesktop =
-          MediaQuery.of(navigatorKey.currentContext!).size.width > 600;
+      // Determinar si es desktop de manera segura
+      bool isDesktop = false;
+      try {
+        final context = navigatorKey.currentContext;
+        if (context != null) {
+          isDesktop = MediaQuery.of(context).size.width > 600;
+        }
+      } catch (e) {
+        LoggerService.warning('No se pudo determinar si es desktop: $e');
+      }
 
       // Cargar guías del backend según el rol de usuario y plataforma
       if (isAdmin || isDesktop) {
@@ -499,6 +506,7 @@ class HistorialController extends ChangeNotifier {
     } catch (e) {
       if (!_mounted) return;
       _errorMessage = 'Error al cargar los archivos PDF: ${e.toString()}';
+      LoggerService.error(_errorMessage);
     } finally {
       if (_mounted) {
         _isLoadingPagePDF = false;
@@ -1066,14 +1074,15 @@ class HistorialController extends ChangeNotifier {
         );
         return true;
       } else {
-        final errorMsg = getErrorAndClear();
+        //final errorMsg = getErrorAndClear();
 
         // Mostrar error
         await ResultadoModal.showError(
           contextToUse,
-          title: 'Error',
-          message: 'No se pudo subir el archivo',
-          details: [Text(errorMsg)],
+          title: 'Advertencia',
+          message:
+              'El archivo ya existe en el servidor, se eliminó de su dispositivo.',
+          //details: [Text(errorMsg)],
         );
         return false;
       }

@@ -222,417 +222,442 @@ class _HistorialPageContentState extends State<_HistorialPageContent> {
     final isLoading =
         isPdf ? controller.isLoadingPagePDF : controller.isLoadingPageCSV;
 
-    if (isLoading) {
-      return CustomCardShimmer(
-        isPdf: isPdf,
-        count: 10,
-      );
-    }
-
-    // Si hay error, mostrar mensaje de error
-    if (controller.hasError) {
-      return RefreshIndicator(
-        onRefresh: () async {
-          if (!mounted) return;
-          return isPdf
-              ? controller.cargarArchivosPDF(isAdmin: controller.isAdmin)
-              : controller.cargarArchivosCSV(isAdmin: controller.isAdmin);
-        },
-        child: ListView.builder(
-          padding: const EdgeInsets.only(bottom: 20),
-          itemCount: 1,
-          itemBuilder: (context, index) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.error_outline,
-                        size: 48, color: AppColors.red),
-                    const SizedBox(height: 16),
-                    Text(
-                      controller.errorMessage,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: AppColors.red),
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.refresh, color: AppColors.white),
-                      label: const Text('Reintentar',
-                          style: TextStyle(color: AppColors.white)),
-                      onPressed: () => isPdf
-                          ? controller.cargarArchivosPDF(
-                              isAdmin: controller.isAdmin)
-                          : controller.cargarArchivosCSV(
-                              isAdmin: controller.isAdmin),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-      );
-    }
-
-    if (archivos.isEmpty && !isLoading) {
-      return RefreshIndicator(
-        onRefresh: () async {
-          if (!mounted) return;
-          return isPdf
-              ? controller.cargarArchivosPDF(isAdmin: controller.isAdmin)
-              : controller.cargarArchivosCSV(isAdmin: controller.isAdmin);
-        },
-        child: ListView.builder(
-          padding: const EdgeInsets.only(bottom: 56),
-          itemCount: 1,
-          itemBuilder: (context, index) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(isPdf ? Icons.picture_as_pdf : Icons.description,
-                      size: 48, color: Colors.grey),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No hay archivos ${isPdf ? 'PDF' : 'CSV'} en esta página',
-                    style: const TextStyle(fontSize: 16),
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-      );
-    }
-
-    final dateFormat = DateFormat('dd/MM/yyyy HH:mm');
-
     return RefreshIndicator(
       onRefresh: () async {
         if (!mounted) return;
-        return isPdf
-            ? controller.cargarArchivosPDF(isAdmin: controller.isAdmin)
-            : controller.cargarArchivosCSV(isAdmin: controller.isAdmin);
-      },
-      child: ListView.builder(
-        itemCount: archivos.length,
-        padding: const EdgeInsets.only(
-          left: 16,
-          right: 16,
-          top: 8,
-          bottom: 72,
-        ),
-        itemBuilder: (context, index) {
-          final archivo = archivos[index];
-
-          // Verificar si el archivo es local
-          final bool isLocal = isPdf &&
-              archivo.fullPath.isNotEmpty &&
-              controller.archivosPdfLocales
-                  .any((local) => local.fullPath == archivo.fullPath);
-
-          // Extraer correlativo del nombre
-          String? correlativo;
-
-          if (archivo.fileName.contains('-')) {
-            final parts = archivo.fileName.split('-');
-            if (parts.length >= 3) {
-              correlativo = parts.length > 2 ? '${parts[2]}-${parts[3]}' : '';
-            }
+        try {
+          if (isPdf) {
+            await controller.cargarArchivosPDF(isAdmin: controller.isAdmin);
+          } else {
+            await controller.cargarArchivosCSV(isAdmin: controller.isAdmin);
           }
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error al actualizar: ${e.toString()}'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      },
+      child: isLoading
+          ? SizedBox(
+              height: MediaQuery.of(context).size.height,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: CustomCardShimmer(
+                  isPdf: isPdf,
+                  count: 10,
+                ),
+              ),
+            )
+          : controller.hasError
+              ? _buildErrorWidget(controller, context, isPdf: isPdf)
+              : archivos.isEmpty
+                  ? _buildEmptyWidget(context, isPdf: isPdf)
+                  : _buildFileList(archivos, controller, context, isPdf: isPdf),
+    );
+  }
 
-          // Construir widgets del subtítulo
-          final List<Widget> subtitleWidgets = [
-            // Fecha
-            RichText(
-              text: TextSpan(
-                style: const TextStyle(fontSize: 12, color: Colors.black87),
-                children: [
-                  const TextSpan(
-                    text: 'Fecha: ',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+  Widget _buildErrorWidget(HistorialController controller, BuildContext context,
+      {required bool isPdf}) {
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height * 0.8,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, size: 48, color: AppColors.red),
+                const SizedBox(height: 16),
+                Text(
+                  controller.errorMessage,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: AppColors.red),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.refresh, color: AppColors.white),
+                  label: const Text('Reintentar',
+                      style: TextStyle(color: AppColors.white)),
+                  onPressed: () async {
+                    try {
+                      if (isPdf) {
+                        await controller.cargarArchivosPDF(
+                            isAdmin: controller.isAdmin);
+                      } else {
+                        await controller.cargarArchivosCSV(
+                            isAdmin: controller.isAdmin);
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content:
+                                Text('Error al reintentar: ${e.toString()}'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
                   ),
-                  TextSpan(
-                    text: dateFormat.format(archivo.creationDate),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyWidget(BuildContext context, {required bool isPdf}) {
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height * 0.8,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(isPdf ? Icons.picture_as_pdf : Icons.description,
+                  size: 48, color: Colors.grey),
+              const SizedBox(height: 16),
+              Text(
+                'No hay archivos ${isPdf ? 'PDF' : 'CSV'} en esta página',
+                style: const TextStyle(fontSize: 16),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFileList(List<GuideFile> archivos,
+      HistorialController controller, BuildContext context,
+      {required bool isPdf}) {
+    final dateFormat = DateFormat('dd/MM/yyyy HH:mm');
+
+    return ListView.builder(
+      physics: const AlwaysScrollableScrollPhysics(),
+      itemCount: archivos.length,
+      padding: const EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 8,
+        bottom: 72,
+      ),
+      itemBuilder: (context, index) {
+        final archivo = archivos[index];
+
+        // Verificar si el archivo es local
+        final bool isLocal = isPdf &&
+            archivo.fullPath.isNotEmpty &&
+            controller.archivosPdfLocales
+                .any((local) => local.fullPath == archivo.fullPath);
+
+        // Extraer correlativo del nombre
+        String? correlativo;
+
+        if (archivo.fileName.contains('-')) {
+          final parts = archivo.fileName.split('-');
+          if (parts.length >= 3) {
+            correlativo = parts.length > 2 ? '${parts[2]}-${parts[3]}' : '';
+          }
+        }
+
+        // Construir widgets del subtítulo
+        final List<Widget> subtitleWidgets = [
+          // Fecha
+          RichText(
+            text: TextSpan(
+              style: const TextStyle(fontSize: 12, color: Colors.black87),
+              children: [
+                const TextSpan(
+                  text: 'Fecha: ',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                TextSpan(
+                  text: dateFormat.format(archivo.creationDate),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 4),
+
+          // Nombre del archivo
+          RichText(
+            text: TextSpan(
+              style: const TextStyle(fontSize: 12, color: Colors.black87),
+              children: [
+                const TextSpan(
+                  text: 'Nombre del archivo: ',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                TextSpan(
+                  text: archivo.fileName,
+                ),
+              ],
+            ),
+          ),
+
+          // Etiqueta "Archivo Local" para archivos locales
+          if (isLocal)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Row(
+                children: [
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'Archivo Local',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 4),
 
-            // Nombre del archivo
-            RichText(
-              text: TextSpan(
-                style: const TextStyle(fontSize: 12, color: Colors.black87),
-                children: [
-                  const TextSpan(
-                    text: 'Nombre del archivo: ',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  TextSpan(
-                    text: archivo.fileName,
-                  ),
-                ],
-              ),
-            ),
-
-            // Etiqueta "Archivo Local" para archivos locales
-            if (isLocal)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Row(
+          // Usuario (solo para PDF del servidor)
+          if (isPdf && archivo.usernameUsuario != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: RichText(
+                text: TextSpan(
+                  style: const TextStyle(fontSize: 12, color: Colors.black87),
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: const Text(
-                        'Archivo Local',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                    const TextSpan(
+                      text: 'Usuario: ',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    TextSpan(
+                      text: archivo.usernameUsuario,
                     ),
                   ],
                 ),
               ),
+            ),
+        ];
 
-            // Usuario (solo para PDF del servidor)
-            if (isPdf && archivo.usernameUsuario != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: RichText(
-                  text: TextSpan(
-                    style: const TextStyle(fontSize: 12, color: Colors.black87),
-                    children: [
-                      const TextSpan(
-                        text: 'Usuario: ',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      TextSpan(
-                        text: archivo.usernameUsuario,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-          ];
-
-          // Iconos para compartir y subir (si es local)
-          final List<Widget> actions = [
-            // Botón para subir al backend
-            if (isLocal)
-              IconButton(
-                icon: controller.isUploadingFile(archivo)
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(Colors.blue),
-                        ),
-                      )
-                    : const Icon(Icons.cloud_upload, color: Colors.blue),
-                onPressed: controller.isUploadingFile(archivo)
-                    ? null
-                    : () async {
-                        // Mostrar diálogo de confirmación primero
-                        final confirmResult = await showDialog<bool>(
-                          context: context,
-                          barrierDismissible: false,
-                          builder: (BuildContext dialogContext) {
-                            return AlertDialog(
-                              backgroundColor: AppColors.white,
-                              title: const Text('Confirmar subida'),
-                              content: const Text(
-                                '¿Está seguro que desea subir esta guía al servidor?',
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () =>
-                                      Navigator.of(dialogContext).pop(false),
-                                  child: const Text('Cancelar'),
-                                ),
-                                ElevatedButton(
-                                  onPressed: () =>
-                                      Navigator.of(dialogContext).pop(true),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppColors.primary,
-                                  ),
-                                  child: const Text(
-                                    'Subir',
-                                    style: TextStyle(color: Colors.white),
-                                  ),
-                                ),
-                              ],
-                            );
-                          },
-                        );
-
-                        // Verificar si se confirmó la subida
-                        if (confirmResult != true || !context.mounted) return;
-
-                        // Delegar al controlador para manejar todo el proceso de subida
-                        await controller.subirArchivoConModal(context, archivo);
-                      },
-                tooltip: 'Subir al backend',
-              ),
-
-            // Botón para compartir
+        // Iconos para compartir y subir (si es local)
+        final List<Widget> actions = [
+          // Botón para subir al backend
+          if (isLocal)
             IconButton(
-              icon: controller.isSharingFile(archivo)
+              icon: controller.isUploadingFile(archivo)
                   ? const SizedBox(
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
                       ),
                     )
-                  : const Icon(Icons.share, color: Colors.green),
-              onPressed: controller.isSharingFile(archivo)
+                  : const Icon(Icons.cloud_upload, color: Colors.blue),
+              onPressed: controller.isUploadingFile(archivo)
                   ? null
                   : () async {
-                      // Mostrar diálogo de carga
-                      showDialog(
+                      // Mostrar diálogo de confirmación primero
+                      final confirmResult = await showDialog<bool>(
                         context: context,
                         barrierDismissible: false,
                         builder: (BuildContext dialogContext) {
-                          return PopScope(
-                            canPop: false,
-                            onPopInvokedWithResult: (didPop, result) {
-                              if (didPop) {
-                                Navigator.of(dialogContext).pop();
-                              }
-                            },
-                            child: AlertDialog(
-                              content: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: const [
-                                  SizedBox(height: 16),
-                                  CircularProgressIndicator(),
-                                  SizedBox(height: 24),
-                                  Text(
-                                    'Preparando archivo para compartir...',
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ],
-                              ),
+                          return AlertDialog(
+                            backgroundColor: AppColors.white,
+                            title: const Text('Confirmar subida'),
+                            content: const Text(
+                              '¿Está seguro que desea subir esta guía al servidor?',
                             ),
+                            actions: [
+                              TextButton(
+                                onPressed: () =>
+                                    Navigator.of(dialogContext).pop(false),
+                                child: const Text('Cancelar'),
+                              ),
+                              ElevatedButton(
+                                onPressed: () =>
+                                    Navigator.of(dialogContext).pop(true),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                ),
+                                child: const Text(
+                                  'Subir',
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                              ),
+                            ],
                           );
                         },
                       );
 
-                      // Compartir el archivo
-                      final success =
-                          await controller.compartirArchivo(archivo);
+                      // Verificar si se confirmó la subida
+                      if (confirmResult != true || !context.mounted) return;
 
-                      // Cerrar el diálogo de carga
-                      if (context.mounted) {
-                        // Usamos un pequeño retraso para asegurar que el Navigator se desbloquee
-                        await Future.delayed(const Duration(milliseconds: 100));
-                        if (context.mounted) Navigator.of(context).pop();
-                      }
+                      // Delegar al controlador para manejar todo el proceso de subida
+                      await controller.subirArchivoConModal(context, archivo);
+                    },
+              tooltip: 'Subir al backend',
+            ),
 
-                      // Verificar si el widget todavía está montado
-                      if (!context.mounted) return;
-
-                      // Usamos otro pequeño retraso para asegurar que el Navigator se desbloquee completamente
-                      await Future.delayed(const Duration(milliseconds: 100));
-                      if (!context.mounted) return;
-
-                      // Si hubo error, mostrar diálogo
-                      if (!success) {
-                        showDialog(
-                          context: context,
-                          barrierDismissible: false,
-                          builder: (BuildContext dialogContext) {
-                            return AlertDialog(
-                              title: const Text(
-                                'Error',
-                                style: TextStyle(color: Colors.red),
-                              ),
-                              content: Text(
-                                controller.errorMessage.isNotEmpty
-                                    ? controller.errorMessage
-                                    : 'No se pudo compartir el archivo',
-                              ),
-                              actions: [
-                                ElevatedButton(
-                                  onPressed: () =>
-                                      Navigator.of(dialogContext).pop(),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppColors.primary,
-                                  ),
-                                  child: const Text(
-                                    'ACEPTAR',
-                                    style: TextStyle(color: Colors.white),
-                                  ),
+          // Botón para compartir
+          IconButton(
+            icon: controller.isSharingFile(archivo)
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
+                    ),
+                  )
+                : const Icon(Icons.share, color: Colors.green),
+            onPressed: controller.isSharingFile(archivo)
+                ? null
+                : () async {
+                    // Mostrar diálogo de carga
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (BuildContext dialogContext) {
+                        return PopScope(
+                          canPop: false,
+                          onPopInvokedWithResult: (didPop, result) {
+                            if (didPop) {
+                              Navigator.of(dialogContext).pop();
+                            }
+                          },
+                          child: AlertDialog(
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                SizedBox(height: 16),
+                                CircularProgressIndicator(),
+                                SizedBox(height: 24),
+                                Text(
+                                  'Preparando archivo para compartir...',
+                                  textAlign: TextAlign.center,
                                 ),
                               ],
-                            );
-                          },
+                            ),
+                          ),
                         );
-                      }
-                    },
-              tooltip: 'Compartir',
-            ),
-          ];
+                      },
+                    );
 
-          // Título con el correlativo e icono diferenciador
-          final titleWidget = Row(
-            children: [
-              Icon(
-                isPdf
-                    ? (isLocal ? Icons.picture_as_pdf : Icons.picture_as_pdf)
-                    : Icons.description,
-                color: isPdf
-                    ? (isLocal
-                        ? Colors.orange
-                        : Colors
-                            .red) // Naranja para PDFs locales, rojo para normales
-                    : Colors.blue,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  correlativo ?? archivo.serieCorrelativo ?? archivo.fileName,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                  overflow: TextOverflow.ellipsis,
+                    // Compartir el archivo
+                    final success = await controller.compartirArchivo(archivo);
+
+                    // Cerrar el diálogo de carga
+                    if (context.mounted) {
+                      // Usamos un pequeño retraso para asegurar que el Navigator se desbloquee
+                      await Future.delayed(const Duration(milliseconds: 100));
+                      if (context.mounted) Navigator.of(context).pop();
+                    }
+
+                    // Verificar si el widget todavía está montado
+                    if (!context.mounted) return;
+
+                    // Usamos otro pequeño retraso para asegurar que el Navigator se desbloquee completamente
+                    await Future.delayed(const Duration(milliseconds: 100));
+                    if (!context.mounted) return;
+
+                    // Si hubo error, mostrar diálogo
+                    if (!success) {
+                      showDialog(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (BuildContext dialogContext) {
+                          return AlertDialog(
+                            title: const Text(
+                              'Error',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                            content: Text(
+                              controller.errorMessage.isNotEmpty
+                                  ? controller.errorMessage
+                                  : 'No se pudo compartir el archivo',
+                            ),
+                            actions: [
+                              ElevatedButton(
+                                onPressed: () =>
+                                    Navigator.of(dialogContext).pop(),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                ),
+                                child: const Text(
+                                  'ACEPTAR',
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                    }
+                  },
+            tooltip: 'Compartir',
+          ),
+        ];
+
+        // Título con el correlativo e icono diferenciador
+        final titleWidget = Row(
+          children: [
+            Icon(
+              isPdf
+                  ? (isLocal ? Icons.picture_as_pdf : Icons.picture_as_pdf)
+                  : Icons.description,
+              color: isPdf
+                  ? (isLocal
+                      ? Colors.orange
+                      : Colors
+                          .red) // Naranja para PDFs locales, rojo para normales
+                  : Colors.blue,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                correlativo ?? archivo.serieCorrelativo ?? archivo.fileName,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
                 ),
+                overflow: TextOverflow.ellipsis,
               ),
-            ],
-          );
-
-          return CustomCard(
-            title: '',
-            titleWidget: titleWidget,
-            subtitleWidgets: subtitleWidgets,
-            trailing: actions,
-            onTap: () => controller.abrirArchivo(archivo),
-            elevation: 2,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 12,
             ),
-          );
-        },
-      ),
+          ],
+        );
+
+        return CustomCard(
+          title: '',
+          titleWidget: titleWidget,
+          subtitleWidgets: subtitleWidgets,
+          trailing: actions,
+          onTap: () => controller.abrirArchivo(archivo),
+          elevation: 2,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 12,
+          ),
+        );
+      },
     );
   }
 }
