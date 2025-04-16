@@ -61,9 +61,9 @@ class _RegistroUsuarioModalState extends State<RegistroUsuarioModal> {
                             'usuario.${controller.usernameController.text.trim().toLowerCase()}@appguias.com',
                       };
 
-                      if (widget.usuario != null) {
-                        userData['id'] = widget.usuario.id;
-                      }
+                      //if (widget.usuario != null) {
+                      // userData['id'] = widget.usuario.id;
+                      //}
 
                       showDialog(
                         context: context,
@@ -211,7 +211,7 @@ class _RegistroUsuarioModalState extends State<RegistroUsuarioModal> {
                         controller: controller.passwordController,
                         label: 'Contraseña',
                         hint: widget.usuario != null
-                            ? 'Dejar vacío para mantener la contraseña actual'
+                            ? 'Ingrese nueva contraseña'
                             : 'Ingrese la contraseña',
                         type: TextFieldType.password,
                         validator: widget.usuario != null

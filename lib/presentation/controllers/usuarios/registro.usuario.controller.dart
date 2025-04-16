@@ -73,18 +73,26 @@ class RegistroUsuarioController extends ChangeNotifier {
   Map<String, dynamic> _processForm({bool isUpdate = false}) {
     final userData = {
       'username': usernameController.text.trim(),
-      'password': passwordController.text.isEmpty && isUpdate
-          ? usuario.contrasena
-          : passwordController.text,
-      'names': nombresController.text.trim(),
-      'surnames': apellidosController.text.trim(),
-      'role': roleController.text == 'Usuario' ? 'USUARIO' : 'ADMINISTRADOR',
+      'nombres': nombresController.text.trim(),
+      'apellidos': apellidosController.text.trim(),
+      'rol': roleController.text == 'Usuario' ? 'USUARIO' : 'ADMINISTRADOR',
       'email':
           'usuario.${usernameController.text.trim().toLowerCase()}@appguias.com',
+      'estado': '1',
+      'guias': [],
     };
+    LoggerService.info('Datos del formulario procesados: $userData');
 
-    if (isUpdate && usuario != null) {
-      userData['id'] = usuario.id;
+    if (isUpdate) {
+      userData['id'] = usuario.id as int;
+      if (passwordController.text.isNotEmpty) {
+        userData['contraseña'] = passwordController.text;
+      }
+      userData['fechA_CREACION'] = usuario.fechaCreacion.toIso8601String();
+      //userData['fechA_ACTUALIZACION'] = '';
+      //userData['guias'] = usuario.guias?.map((g) => g.toJson()).toList() ?? [];
+    } else {
+      userData['password'] = passwordController.text;
     }
 
     return userData;
@@ -138,6 +146,7 @@ class RegistroUsuarioController extends ChangeNotifier {
 
       if (response != null) {
         LoggerService.info('Usuario actualizado exitosamente');
+        error = null;
         return true;
       } else {
         final errorMessage = _usuarioProvider!.error ?? 'Error desconocido';
