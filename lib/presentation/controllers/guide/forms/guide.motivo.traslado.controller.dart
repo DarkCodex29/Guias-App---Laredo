@@ -10,10 +10,11 @@ class MotivoTrasladoController extends ChangeNotifier {
 
   final TextEditingController modalidadTraslado = TextEditingController();
   final TextEditingController motivoTraslado = TextEditingController();
-
+  final TextEditingController descripcionMotivo = TextEditingController();
   final Map<String, String?> _errors = {
     'modalidadTraslado': null,
     'motivoTraslado': null,
+    'descripcionMotivo': null,
   };
 
   // Set para rastrear campos tocados
@@ -61,6 +62,7 @@ class MotivoTrasladoController extends ChangeNotifier {
       }
     });
     motivoTraslado.addListener(() => _onFieldChanged('motivoTraslado'));
+    descripcionMotivo.addListener(() => _onFieldChanged('descripcionMotivo'));
   }
 
   void _onFieldChanged(String field) {
@@ -83,14 +85,19 @@ class MotivoTrasladoController extends ChangeNotifier {
           ? 'El motivo de traslado es requerido'
           : null;
     }
+    if (_touchedFields.contains('descripcionMotivo')) {
+      _errors['descripcionMotivo'] = descripcionMotivo.text.isEmpty
+          ? 'La descripción del motivo es requerida'
+          : null;
+    }
 
     // Actualizar progreso
     int completedFields = 0;
-    const totalFields = 2;
+    const totalFields = 3;
 
     if (modalidadTraslado.text.isNotEmpty) completedFields++;
     if (motivoTraslado.text.isNotEmpty) completedFields++;
-
+    if (descripcionMotivo.text.isNotEmpty) completedFields++;
     _flowController!.updateStepProgress(
       GuideStep.motivoTraslado,
       completedFields,
@@ -107,12 +114,14 @@ class MotivoTrasladoController extends ChangeNotifier {
     if (!_isInitialized) {
       // Establecer valores por defecto al inicializar
       modalidadTraslado.text = modalidades['02']!; // 'Privado'
-      motivoTraslado.text =
-          motivos['17']!; // 'Traslado de bienes para transformación'
+      motivoTraslado.text = motivos['13']!; // 'Otros'
+      descripcionMotivo.text =
+          'TRASLADO DE CAÑA ENTRE ESTABLECIMIENTOS O CAMPOS PROPIOS';
 
       // Marcar campos como tocados para validación
       _touchedFields.add('modalidadTraslado');
       _touchedFields.add('motivoTraslado');
+      _touchedFields.add('descripcionMotivo');
 
       _isInitialized = true;
     }
@@ -122,13 +131,15 @@ class MotivoTrasladoController extends ChangeNotifier {
   void resetToDefault() {
     // Establecer valores por defecto estándar para la empresa
     modalidadTraslado.text = modalidades['02']!; // 'Privado'
-    motivoTraslado.text =
-        motivos['17']!; // 'Traslado de bienes para transformación'
+    motivoTraslado.text = motivos['13']!; // 'Otros'
+    descripcionMotivo.text =
+        'TRASLADO DE CAÑA ENTRE ESTABLECIMIENTOS O CAMPOS PROPIOS';
 
     // Limpiar errores y campos tocados
     _errors.forEach((key, _) => _errors[key] = null);
     _touchedFields.add('modalidadTraslado');
     _touchedFields.add('motivoTraslado');
+    _touchedFields.add('descripcionMotivo');
 
     // Validar y notificar
     validateFields();
@@ -139,6 +150,7 @@ class MotivoTrasladoController extends ChangeNotifier {
   void dispose() {
     modalidadTraslado.dispose();
     motivoTraslado.dispose();
+    descripcionMotivo.dispose();
     super.dispose();
   }
 
@@ -159,6 +171,7 @@ class MotivoTrasladoController extends ChangeNotifier {
     return {
       'modalidadTraslado': modalidadCodigo, // '01' o '02'
       'motivoTraslado': motivoCodigo, // '01' a '14'
+      'descripcionMotivo': descripcionMotivo.text,
     };
   }
 

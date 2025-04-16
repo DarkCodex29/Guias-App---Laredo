@@ -528,6 +528,7 @@ class NewGuideController extends ChangeNotifier {
       'envio': {
         'motivoTraslado': motivoTrasladoData['motivoTraslado'],
         'modalidadTraslado': modalidadTraslado,
+        'descripcionMotivo': motivoTrasladoData['descripcionMotivo'],
         'pesoBruto': detalleData['pesoBruto'],
         'unidadMedida': detalleData['unidadMedida'] ?? 'TNE',
         'fechaInicioTraslado': transporteData['fechaTraslado'],

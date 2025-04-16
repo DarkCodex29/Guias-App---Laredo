@@ -125,7 +125,7 @@ class DetalleCargaController extends ChangeNotifier {
                 'numero': (entry.key + 1).toString(),
                 'unidadMedida': entry.value.unidadMedida,
                 'descripcionUnidad': entry.value.unidadMedida == 'TM'
-                    ? 'TONELADA METRICA'
+                    ? 'TONELADAS'
                     : 'KILOGRAMO',
                 'cantidad': entry.value.cantidad.toString(),
                 'descripcion': entry.value.producto,

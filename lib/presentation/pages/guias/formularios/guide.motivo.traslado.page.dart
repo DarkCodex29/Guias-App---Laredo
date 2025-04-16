@@ -157,6 +157,14 @@ class MotivoTrasladoPage extends StatelessWidget {
           errorText: controller.getError('motivoTraslado'),
           onChanged: (_) => {},
         ),
+        const SizedBox(height: 16),
+        CustomTextField(
+          label: 'Descripción del motivo',
+          hint: 'Ingrese la descripción del motivo',
+          controller: controller.descripcionMotivo,
+          type: TextFieldType.text,
+          errorText: controller.getError('descripcionMotivo'),
+        ),
       ],
     );
   }

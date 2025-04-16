@@ -189,7 +189,7 @@ class CsvService {
 
       rows.add([
         motivoTraslado, // M, an2
-        '', // Descripción motivo ya no se usa
+        data['envio']?['descripcionMotivo'] ?? '', // Descripción motivo
         data['indicadorM1L'] == 'SI'
             ? 'SUNAT_Envio_IndicadorTrasladoVehiculoM1L'
             : '', // C, an..50

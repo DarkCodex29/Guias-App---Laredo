@@ -13,7 +13,7 @@ class LlegadaController extends ChangeNotifier {
 
   // Valores por defecto fijos
   static const String direccionDefault =
-      'AV. LOS CHALETES N° 103 - ZONA INDUSTRIAL - LAREDO';
+      'AV. LOS CHALETS N° 103 - ZONA INDUSTRIAL - LAREDO';
   static const String departamentoDefault = 'LA LIBERTAD';
   static const String provinciaDefault = 'TRUJILLO';
   static const String distritoDefault = 'LAREDO';
