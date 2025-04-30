@@ -223,8 +223,8 @@ class ListaUsuariosController extends ChangeNotifier {
     }
   }
 
-  Future<bool> cargarMasivaUsuarios() async {
-    if (_isLoading) return false;
+  Future<Map<String, dynamic>?> cargarMasivaUsuarios() async {
+    if (_isLoading) return null;
 
     _setLoading(true);
     _setError(null);
@@ -237,21 +237,35 @@ class ListaUsuariosController extends ChangeNotifier {
 
       if (result != null) {
         File file = File(result.files.single.path!);
-        final success = await _usuarioProvider.uploadUsuariosExcel(file);
+        final response = await _usuarioProvider.uploadUsuariosExcel(file);
 
-        if (success) {
-          await cargarUsuarios();
-          return true;
+        // Mapeo de errores y mensajes
+        if (response.containsKey('errores') &&
+            response['errores'] != null &&
+            (response['errores'] as List).isNotEmpty) {
+          _setError((response['errores'] as List).join('\n'));
+        } else if (response.containsKey('errors')) {
+          // Errores de encabezado o archivo
+          final errors = response['errors'];
+          if (errors is Map && errors['file'] != null) {
+            _setError((errors['file'] as List).join('\n'));
+          } else {
+            _setError('Error desconocido en el archivo.');
+          }
+        } else if (response['registrosExitosos'] ==
+            response['totalRegistros']) {
+          _setError(null);
+        } else if (response['success'] == false) {
+          _setError('No se pudo procesar el archivo.');
         }
-        _setError('No se pudo procesar el archivo');
-        return false;
+        return response;
       } else {
         _setError('No se seleccionó ningún archivo');
-        return false;
+        return null;
       }
     } catch (e) {
       _setError(e.toString());
-      return false;
+      return null;
     } finally {
       _setLoading(false);
     }

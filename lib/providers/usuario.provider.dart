@@ -120,19 +120,23 @@ class UsuarioProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> uploadUsuariosExcel(File file) async {
+  Future<Map<String, dynamic>> uploadUsuariosExcel(File file) async {
     try {
-      final success = await _usuarioService.uploadUsuariosExcel(file);
-      if (success) {
-        await loadUsuarios();
-        return true;
-      }
-      return false;
+      final response = await _usuarioService.uploadUsuariosExcel(file);
+      await loadUsuarios();
+      return response;
+      return {
+        'success': false,
+        'errores': ['Error desconocido al cargar usuarios.']
+      };
     } catch (e) {
       _error = e.toString();
       LoggerService.error('Error al cargar usuarios: $e');
       notifyListeners();
-      return false;
+      return {
+        'success': false,
+        'errores': [_error ?? 'Error desconocido']
+      };
     }
   }
 

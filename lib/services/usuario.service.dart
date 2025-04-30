@@ -158,26 +158,33 @@ class UsuarioService {
     }
   }
 
-  Future<bool> uploadUsuariosExcel(File file) async {
+  Future<Map<String, dynamic>> uploadUsuariosExcel(File file) async {
     try {
       String fileName = file.path.split('/').last;
       final formData = FormData.fromMap({
         "file": await MultipartFile.fromFile(file.path, filename: fileName),
       });
 
+      // Logs de depuración
+      LoggerService.info(
+          'URL final: \\${_dio.options.baseUrl}${ApiEndpoints.usuarios}/carga-masiva');
+      LoggerService.info('Headers: \\${_dio.options.headers}');
+      LoggerService.info('Archivo: \\$fileName');
+
       final response = await _dio.post(
-        '${ApiEndpoints.registroUsuario}/carga-masiva',
+        '${ApiEndpoints.usuarios}/carga-masiva',
         data: formData,
         options: Options(
           contentType: 'multipart/form-data',
         ),
       );
 
-      if (response.statusCode == 200) {
-        return response.data['success'] ?? false;
+      // Siempre retorna el body del backend si es un Map
+      if (response.data is Map<String, dynamic>) {
+        return response.data;
+      } else {
+        throw Exception('Error al cargar usuarios: ${response.statusCode}');
       }
-
-      throw Exception('Error al cargar usuarios: ${response.statusCode}');
     } catch (e) {
       LoggerService.error('Error al cargar usuarios: $e');
       throw Exception('Error al cargar usuarios: $e');

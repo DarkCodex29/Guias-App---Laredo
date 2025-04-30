@@ -67,19 +67,30 @@ class _ListaUsuariosViewState extends State<_ListaUsuariosView> {
             onPressed: controller.isLoading
                 ? null
                 : () async {
-                    final success = await controller.cargarMasivaUsuarios();
-                    if (success && context.mounted) {
+                    final response = await controller.cargarMasivaUsuarios();
+                    if (response != null &&
+                        controller.errorMessage == null &&
+                        response['registrosExitosos'] ==
+                            response['totalRegistros']) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Usuarios cargados correctamente'),
+                        SnackBar(
+                          content: Text(
+                              '¡Carga masiva exitosa! ${response['registrosExitosos']} usuarios registrados.'),
                           backgroundColor: Colors.green,
                         ),
                       );
-                    } else if (context.mounted) {
+                    } else if (response != null &&
+                        controller.errorMessage != null) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text(controller.errorMessage ??
-                              'Error al cargar usuarios'),
+                          content: Text(controller.errorMessage!),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    } else if (controller.errorMessage != null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(controller.errorMessage!),
                           backgroundColor: Colors.red,
                         ),
                       );
