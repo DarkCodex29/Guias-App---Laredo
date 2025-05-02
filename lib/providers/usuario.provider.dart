@@ -144,6 +144,7 @@ class UsuarioProvider extends ChangeNotifier {
       final response = await _usuarioService.getAllUsuarios(
         page: page,
         pageSize: pageSize,
+        all: true,
       );
       _usuarios = response['usuarios'] as List<Usuario>;
       _updatePaginationState(response);
