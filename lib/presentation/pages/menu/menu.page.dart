@@ -209,20 +209,20 @@ class _MenuPageState extends State<MenuPage> {
                       );
                     },
                   ),
-                  if (isAdmin)
-                    _buildDesktopCard(
-                      'Administrar usuarios',
-                      Icons.people,
-                      'Gestiona los usuarios del sistema',
-                      () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const ListaUsuariosPage(),
-                          ),
-                        );
-                      },
-                    ),
+                  // if (isAdmin)
+                  //   _buildDesktopCard(
+                  //     'Administrar usuarios',
+                  //     Icons.people,
+                  //     'Gestiona los usuarios del sistema',
+                  //     () {
+                  //       Navigator.push(
+                  //         context,
+                  //         MaterialPageRoute(
+                  //           builder: (context) => const ListaUsuariosPage(),
+                  //         ),
+                  //       );
+                  //     },
+                  //   ),
                 ],
               ),
             ),

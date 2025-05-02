@@ -125,10 +125,6 @@ class UsuarioProvider extends ChangeNotifier {
       final response = await _usuarioService.uploadUsuariosExcel(file);
       await loadUsuarios();
       return response;
-      return {
-        'success': false,
-        'errores': ['Error desconocido al cargar usuarios.']
-      };
     } catch (e) {
       _error = e.toString();
       LoggerService.error('Error al cargar usuarios: $e');

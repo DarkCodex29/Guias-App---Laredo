@@ -53,7 +53,7 @@ class ListaUsuariosController extends ChangeNotifier {
         final username = usuario.username.toLowerCase();
         final nombres = usuario.nombres.toLowerCase();
         final apellidos = usuario.apellidos.toLowerCase();
-        final email = usuario.email.toLowerCase();
+        final email = usuario.email?.toLowerCase() ?? '';
         final fechaCreacion = usuario.fechaCreacion.toString().toLowerCase();
 
         return username.contains(_filtro) ||
@@ -149,7 +149,7 @@ class ListaUsuariosController extends ChangeNotifier {
         "apellidos": userData['surnames'] ?? '',
         "contraseña": userData['password'] ?? '',
         "rol": userData['role'] ?? 'USUARIO',
-        "email": 'usuario@example.com',
+        "email": '',
         "estado": "1",
         "fechA_CREACION": DateTime.now().toIso8601String(),
         "fechA_ACTUALIZACION": null,

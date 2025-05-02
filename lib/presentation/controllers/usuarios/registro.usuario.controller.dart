@@ -76,8 +76,7 @@ class RegistroUsuarioController extends ChangeNotifier {
       'nombres': nombresController.text.trim(),
       'apellidos': apellidosController.text.trim(),
       'rol': roleController.text == 'Usuario' ? 'USUARIO' : 'ADMINISTRADOR',
-      'email':
-          'usuario.${usernameController.text.trim().toLowerCase()}@appguias.com',
+      'email': '',
       'estado': '1',
       'guias': [],
     };

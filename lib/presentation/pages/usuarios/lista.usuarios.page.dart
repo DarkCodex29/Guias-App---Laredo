@@ -289,69 +289,21 @@ class _ListaUsuariosViewState extends State<_ListaUsuariosView> {
             ),
           ),
         ),
-        Expanded(
-          flex: 1,
-          child: Container(
-            color: AppColors.primary.withOpacity(0.05),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Gestión de Usuarios',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Aquí puedes gestionar todos los usuarios del sistema. Puedes crear nuevos usuarios, editar los existentes o eliminar usuarios que ya no sean necesarios.',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.black54,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Acciones disponibles:',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildActionItem(
-                    Icons.add,
-                    'Crear usuario',
-                    'Agrega un nuevo usuario al sistema',
-                  ),
-                  const SizedBox(height: 12),
-                  _buildActionItem(
-                    Icons.edit,
-                    'Editar usuario',
-                    'Modifica la información de un usuario existente',
-                  ),
-                  const SizedBox(height: 12),
-                  _buildActionItem(
-                    Icons.delete,
-                    'Eliminar usuario',
-                    'Elimina un usuario del sistema',
-                  ),
-                  const SizedBox(height: 12),
-                  _buildActionItem(
-                    Icons.upload_file,
-                    'Carga masiva',
-                    'Importa múltiples usuarios desde un archivo CSV',
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
+        // Expanded(
+        //   flex: 1,
+        //   child: Container(
+        //     color: AppColors.primary.withOpacity(0.05),
+        //     child: Padding(
+        //       padding: const EdgeInsets.all(16.0),
+        //       child: Column(
+        //         crossAxisAlignment: CrossAxisAlignment.start,
+        //         children: [
+        //           ... // Card de administración y acciones
+        //         ],
+        //       ),
+        //     ),
+        //   ),
+        // ),
       ],
     );
   }

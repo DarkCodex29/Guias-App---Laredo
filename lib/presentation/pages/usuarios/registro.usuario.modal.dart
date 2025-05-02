@@ -57,8 +57,7 @@ class _RegistroUsuarioModalState extends State<RegistroUsuarioModal> {
                         'role': controller.roleController.text == 'Usuario'
                             ? 'USUARIO'
                             : 'ADMINISTRADOR',
-                        'email':
-                            'usuario.${controller.usernameController.text.trim().toLowerCase()}@appguias.com',
+                        'email': '',
                       };
 
                       //if (widget.usuario != null) {
