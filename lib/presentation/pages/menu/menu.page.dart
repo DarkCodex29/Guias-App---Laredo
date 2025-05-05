@@ -11,6 +11,7 @@ import 'package:app_guias/providers/auth.provider.dart';
 import 'package:app_guias/presentation/controllers/guide/guide.flow.controller.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter/scheduler.dart';
 
 class MenuPage extends StatefulWidget {
   const MenuPage({super.key});
@@ -21,11 +22,20 @@ class MenuPage extends StatefulWidget {
 
 class _MenuPageState extends State<MenuPage> {
   late GuideFlowController _guideFlowController;
+  bool _controllersInitialized = false;
 
   @override
   void initState() {
     super.initState();
-    _initializeControllers();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_controllersInitialized) {
+      _controllersInitialized = true;
+      _initializeControllers();
+    }
   }
 
   Future<void> _initializeControllers() async {
@@ -42,12 +52,16 @@ class _MenuPageState extends State<MenuPage> {
       await _guideFlowController.usoInternoController.init();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Error al cargar los datos iniciales'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        SchedulerBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Error al cargar los datos iniciales'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        });
       }
     }
   }

@@ -16,11 +16,31 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:io' show Platform;
 import 'presentation/widgets/auth.wrapper.dart';
 import 'firebase_options.dart';
+import 'services/firebase.service.dummy.dart';
 
 void main() async {
   try {
     WidgetsFlutterBinding.ensureInitialized();
 
+    // Detectar si es desktop (Windows, Linux, MacOS)
+    final isDesktop =
+        !kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
+
+    if (isDesktop) {
+      // Inicializar dotenv en desktop
+      await dotenv.load(fileName: ".env");
+      final firebaseService = FirebaseServiceDummy();
+
+      runApp(
+        AppProviders.getProviders(
+          firebaseService,
+          child: const MyApp(),
+        ),
+      );
+      return;
+    }
+
+    // --- SOLO PARA MOBILE/WEB ---
     // Configurar share_plus
     Share.downloadFallbackEnabled = true;
 
@@ -125,7 +145,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: dotenv.env['APP_NAME']!,
+      title: dotenv.env['APP_NAME'] ?? 'Guías Laredo',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(

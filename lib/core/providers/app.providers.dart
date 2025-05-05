@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
-import 'package:app_guias/services/firebase.service.dart';
+import 'package:app_guias/domain/repositories/ubigeo.repository.dart';
 import 'package:app_guias/presentation/controllers/ubigeo_controller.dart';
 import 'package:app_guias/providers/auth.provider.dart';
 import 'package:app_guias/providers/campo.provider.dart';
@@ -14,13 +14,13 @@ import 'package:app_guias/providers/usuario.provider.dart';
 import 'package:app_guias/providers/guia.provider.dart';
 
 class AppProviders {
-  static MultiProvider getProviders(FirebaseService firebaseService,
+  static MultiProvider getProviders(UbigeoRepository firebaseService,
       {required Widget child}) {
     final baseUrl = dotenv.env['API_BASE_URL']!;
 
     return MultiProvider(
       providers: [
-        Provider<FirebaseService>.value(value: firebaseService),
+        Provider<UbigeoRepository>.value(value: firebaseService),
         // Providers para la integración con el backend
         ChangeNotifierProvider(
           create: (_) => AuthProvider(baseUrl: baseUrl),
