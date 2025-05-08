@@ -276,7 +276,7 @@ class EfactService {
 
       // Implementar reintentos para el código 202 (En proceso)
       final int maxIntentos = 30;
-      final Duration tiempoEspera = const Duration(seconds: 6);
+      final Duration tiempoEspera = const Duration(seconds: 10);
 
       for (int intento = 1; intento <= maxIntentos; intento++) {
         LoggerService.info(
@@ -377,7 +377,7 @@ class EfactService {
     try {
       // Implementar reintentos para el código 202 (En proceso)
       final int maxIntentos = 30;
-      final Duration tiempoEspera = const Duration(seconds: 6);
+      final Duration tiempoEspera = const Duration(seconds: 10);
 
       for (int intento = 1; intento <= maxIntentos; intento++) {
         LoggerService.info(
